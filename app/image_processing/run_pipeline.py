@@ -31,7 +31,7 @@ def run_full_pipeline(image_path: str, device: str = 'cpu'):
         image_path (str): Path to the input image.
         device (str): Device to run models on ('cpu' or 'cuda').
     """
-    results_folder = os.path.join(os.getcwd(), "results")
+    results_folder = os.path.join(os.getcwd(), "play/results")
     os.makedirs(results_folder, exist_ok=True)
     
     # Step 1: Read the image.
@@ -86,7 +86,7 @@ def main():
     if len(sys.argv) > 1:
         image_paths = [sys.argv[1]]
     else:
-        images_folder = os.path.join(os.getcwd(), "images")
+        images_folder = os.path.join(os.getcwd(), "play/test_images")
         image_paths = utils.get_all_image_paths(images_folder)
         if not image_paths:
             logger.error("No image path provided and no images found in the 'images' folder.")
