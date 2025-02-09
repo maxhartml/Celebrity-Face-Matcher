@@ -1,9 +1,11 @@
 # scripts/test_image_processing.py
 
+import os
+import sys
+import glob
+import logging
 import logging_config  # Ensure the global logging is configured
 import cv2
-import sys
-import logging
 from app.image_processing.face_detector import FaceDetector
 from app.image_processing.face_aligner import FaceAligner
 from app.image_processing.face_encoder import FaceEncoder
@@ -26,7 +28,7 @@ def run_full_pipeline(image_path: str, device: str = 'cpu'):
     first_box = boxes[0]
     first_landmarks = landmarks[0]
     
-    # Step 3: Crop the detected face
+    # Step 3: Crop the detected face (optional step for visualization, if needed)
     x1, y1, x2, y2 = first_box.astype(int)
     face_crop = image[y1:y2, x1:x2]
     
@@ -42,9 +44,24 @@ def run_full_pipeline(image_path: str, device: str = 'cpu'):
     logger.info("Embedding for the detected face: %s", embedding)
 
 if __name__ == "__main__":
-    image_path = sys.argv[1] if len(sys.argv) > 1 else None
-    if image_path is None:
-        logger.error("Usage: python test_image_processing.py <path_to_image>")
+    # If an image path is provided via command-line, use it;
+    # otherwise, default to a pre-defined image in the "images" folder at the project root.
+    if len(sys.argv) > 1:
+        image_path = sys.argv[1]
     else:
-        run_full_pipeline(image_path)
-        logging.info("Full pipeline completed successfully.")
+        default_folder = os.path.join(os.getcwd(), "images")
+        # Supported image extensions
+        possible_extensions = ["*.jpg", "*.jpeg", "*.png", "*.bmp", "*.gif"]
+        image_path = None
+        for ext in possible_extensions:
+            pattern = os.path.join(default_folder, ext)
+            files = glob.glob(pattern)
+            if files:
+                image_path = files[0]
+                break
+        if image_path is None:
+            logger.error("No image path provided and no default image found in %s", default_folder)
+            sys.exit(1)
+    
+    run_full_pipeline(image_path)
+    logger.info("Full pipeline completed successfully.")

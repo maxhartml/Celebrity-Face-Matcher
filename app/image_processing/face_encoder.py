@@ -70,5 +70,5 @@ class FaceEncoder:
             embedding = self.model(preprocessed_face)
         embedding_np = embedding.cpu().numpy().flatten()
         logger.info("Generated embedding of shape: %s", embedding_np.shape)
-        logging.info("Embedding: %s", embedding_np)
+        logger.info("Embedding: %s", embedding_np)
         return embedding_np
