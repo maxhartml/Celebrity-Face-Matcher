@@ -50,15 +50,3 @@ class FaceDetector:
         
         logger.info("Detected %d face(s).", len(boxes))
         return boxes, probs, landmarks
-
-# For standalone testing (optional)
-if __name__ == "__main__":
-    import sys
-    image_path = sys.argv[1] if len(sys.argv) > 1 else None
-    if image_path is None:
-        logger.error("No image path provided!")
-    else:
-        img = cv2.imread(image_path)
-        fd = FaceDetector(device='cpu')
-        boxes, probs, landmarks = fd.detect_faces(img)
-        logger.info("Detected Boxes: %s", boxes)
