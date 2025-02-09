@@ -1,11 +1,12 @@
 """
 Module: orchestrator.py
 
-This module orchestrates the process of:
-- Retrieving celebrity records from MongoDB.
-- Downloading celebrity images.
-- Processing each image through the image processing pipeline (using process_image() from run_pipeline).
-- Upserting the extracted embedding(s) along with celebrity metadata into the Pinecone vector store.
+This module orchestrates the batch processing of celebrity images:
+- Retrieves celebrity records from MongoDB.
+- Downloads celebrity images.
+- Processes each image through the image processing pipeline (using process_image_array() from run_pipeline).
+- Saves both the original and composite images to a dedicated subfolder for each celebrity in "celebrity_images".
+- Upserts the extracted embedding (for simplicity, the first embedding) along with celebrity metadata into the Pinecone vector store.
 """
 
 import os
@@ -50,9 +51,11 @@ def orchestrate_embeddings(device: str = 'cpu'):
     """
     Orchestrate the batch processing of celebrity images:
     - Retrieve celebrity records from MongoDB.
-    - For each record, download the image and save it temporarily.
-    - Process the image via run_pipeline.process_image() to extract embeddings.
-    - Upsert the first embedding (for simplicity) along with metadata into Pinecone.
+    - For each record:
+        - Download the image.
+        - Process the image via process_image_array() to extract embeddings.
+        - Save both the original and composite images to a dedicated subfolder.
+        - Upsert the first embedding (for simplicity) along with metadata into Pinecone.
     """
     try:
         db_manager = DBManager()
@@ -72,8 +75,8 @@ def orchestrate_embeddings(device: str = 'cpu'):
         logger.error("Error initializing Pinecone index: %s", e)
         return
 
-    temp_folder = os.path.join(os.getcwd(), "temp")
-    os.makedirs(temp_folder, exist_ok=True)
+    base_results_folder = os.path.join(os.getcwd(), "celebrity_images")
+    os.makedirs(base_results_folder, exist_ok=True)
 
     processed_count = 0
     for celeb in celebrities:
@@ -82,26 +85,24 @@ def orchestrate_embeddings(device: str = 'cpu'):
             name = celeb.get("name", "Unknown")
             image_url = celeb.get("image_url")
             if not image_url:
-                logger.warning("Celebrity %s (%s) does not have an image URL; skipping.", celebrity_id, name)
+                logger.warning("Celebrity %s (%s) has no image URL; skipping.", celebrity_id, name)
                 continue
 
-            # Download the image.
+            # Download the image directly into a NumPy array.
             image = download_image(image_url)
-            temp_filename = f"temp_{celebrity_id}.jpg"
-            temp_path = os.path.join(temp_folder, temp_filename)
-            cv2.imwrite(temp_path, image)
 
-            # Process the image to obtain embeddings.
-            _, embeddings = run_pipeline.process_image(temp_path, device=device)
+            # Process the image using process_image_array() directly.
+            embeddings = run_pipeline.process_image_array(image=image, device=device, name=name)
             if not embeddings:
                 logger.warning("No embeddings extracted for celebrity %s (%s); skipping.", celebrity_id, name)
                 continue
 
             # For simplicity, take the first embedding.
             embedding = embeddings[0]
+
+            # Prepare metadata for Pinecone.
             metadata = {
                 "name": name,
-                "biography": celeb.get("biography", ""),
                 "image_url": image_url
             }
 
@@ -109,9 +110,6 @@ def orchestrate_embeddings(device: str = 'cpu'):
             pinecone_client.upsert_embedding(index, celebrity_id=celebrity_id, embedding=embedding, metadata=metadata)
             logger.info("Upserted embedding for celebrity %s (%s).", celebrity_id, name)
             processed_count += 1
-
-            # Clean up the temporary file.
-            os.remove(temp_path)
 
         except Exception as e:
             logger.error("Error processing celebrity record %s: %s", celeb.get("_id"), e)

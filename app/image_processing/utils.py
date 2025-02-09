@@ -1,3 +1,10 @@
+"""
+Module: utils.py
+
+This module contains utility functions for image processing, such as reading images,
+resizing, drawing detections, composing images, and retrieving file paths.
+"""
+
 import os
 import glob
 import cv2
@@ -9,13 +16,13 @@ logger = logging.getLogger(__name__)
 def read_image(image_path: str) -> np.ndarray:
     """
     Read an image from the given file path.
-    
+
     Args:
         image_path (str): Path to the image file.
-    
+
     Returns:
         np.ndarray: The image read from disk.
-    
+
     Raises:
         ValueError: If the image cannot be read.
     """
@@ -27,16 +34,41 @@ def read_image(image_path: str) -> np.ndarray:
     logger.debug("Image shape: %s", image.shape)
     return image
 
+def save_image(image: np.ndarray, folder: str, filename: str) -> str:
+    """
+    Save an image to a specified folder with the given filename.
+    
+    Args:
+        image (np.ndarray): The image to save.
+        folder (str): The target folder where the image will be saved.
+        filename (str): The name of the file (e.g., "result.jpg").
+    
+    Returns:
+        str: The full path where the image was saved.
+    
+    Raises:
+        Exception: If saving fails.
+    """
+    try:
+        os.makedirs(folder, exist_ok=True)
+        path = os.path.join(folder, filename)
+        cv2.imwrite(path, image)
+        logger.info("Image saved to %s", path)
+        return path
+    except Exception as e:
+        logger.error("Error saving image to %s: %s", folder, e)
+        raise e
+
 def resize_image(image: np.ndarray, width: int = None, height: int = None, interpolation=cv2.INTER_AREA) -> np.ndarray:
     """
     Resize an image to the specified width and/or height.
-    
+
     Args:
         image (np.ndarray): Input image.
         width (int): Desired width.
         height (int): Desired height.
         interpolation: Interpolation method for resizing.
-    
+
     Returns:
         np.ndarray: The resized image.
     """
@@ -54,7 +86,7 @@ def resize_image(image: np.ndarray, width: int = None, height: int = None, inter
         dim = (width, int(h * r))
     else:
         dim = (width, height)
-    
+
     resized = cv2.resize(image, dim, interpolation=interpolation)
     logger.debug("Resized image shape: %s", resized.shape)
     return resized
@@ -62,12 +94,12 @@ def resize_image(image: np.ndarray, width: int = None, height: int = None, inter
 def draw_detections(image: np.ndarray, boxes: np.ndarray, landmarks: list) -> np.ndarray:
     """
     Draw bounding boxes and landmarks on the image.
-    
+
     Args:
         image (np.ndarray): Original image.
         boxes (np.ndarray): Array of bounding boxes.
         landmarks (list): List of landmarks for each detected face.
-    
+
     Returns:
         np.ndarray: Annotated image.
     """
@@ -83,19 +115,19 @@ def draw_detections(image: np.ndarray, boxes: np.ndarray, landmarks: list) -> np
 def create_composite_image(annotated_img: np.ndarray, face_rows: list, target_width: int = 448) -> np.ndarray:
     """
     Combine the annotated image and the per-face rows into a single composite image.
-    
+
     Args:
         annotated_img (np.ndarray): Annotated original image.
         face_rows (list): List of images (rows) each showing the cropped and aligned face.
         target_width (int): The width to which face rows are set.
-    
+
     Returns:
         np.ndarray: The final composite image.
     """
     annotated_h, annotated_w = annotated_img.shape[:2]
     new_height = int(annotated_h * (target_width / annotated_w))
     annotated_resized = cv2.resize(annotated_img, (target_width, new_height))
-    
+
     if face_rows:
         faces_composite = cv2.vconcat(face_rows)
         margin = 10
@@ -103,16 +135,16 @@ def create_composite_image(annotated_img: np.ndarray, face_rows: list, target_wi
         final_composite = cv2.vconcat([annotated_resized, margin_img, faces_composite])
     else:
         final_composite = annotated_resized
-    
+
     return final_composite
 
 def get_all_image_paths(folder: str) -> list:
     """
     Retrieve all image paths from the specified folder.
-    
+
     Args:
         folder (str): Path to the folder containing images.
-    
+
     Returns:
         list: List of image file paths.
     """
