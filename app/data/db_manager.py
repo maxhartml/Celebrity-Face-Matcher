@@ -131,6 +131,20 @@ class DBManager:
         except Exception as e:
             logger.error("Error deleting document: %s", e)
             raise e
+        
+    def delete_all_documents(self):
+        """
+        Delete all documents from the collection.
+        
+        Returns:
+            int: The number of documents deleted.
+        """
+        try:
+            result = self.collection.delete_many({})
+            logger.info("Deleted %d document(s).", result.deleted_count)
+            return result.deleted_count
+        except Exception as e:
+            logger.error("Error deleting documents: %s", e)
 
     def get_all_documents(self):
         """
