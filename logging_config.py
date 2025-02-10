@@ -28,7 +28,7 @@ log_config = {
             'maxBytes': 10 * 1024 * 1024,
             'backupCount': 5,
         },
-        # File handler for the matching module logs
+        # File handler for the orchestration module logs
         'orchestration_handler': {
             'class': 'logging.handlers.RotatingFileHandler',
             'level': 'DEBUG',
@@ -55,7 +55,7 @@ log_config = {
             'maxBytes': 10 * 1024 * 1024,
             'backupCount': 5,
         },
-        # File handler for the vector_space module logs
+        # File handler for the vector_store module logs
         'vector_store_handler': {
             'class': 'logging.handlers.RotatingFileHandler',
             'level': 'DEBUG',
@@ -73,37 +73,57 @@ log_config = {
             'maxBytes': 10 * 1024 * 1024,
             'backupCount': 5,
         },
+        # File handler for the query module logs
+        'query_handler': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'level': 'DEBUG',
+            'formatter': 'default',
+            'filename': 'logs/query.log',
+            'maxBytes': 10 * 1024 * 1024,
+            'backupCount': 5,
+        },
     },
     'loggers': {
-        # Logger configuration for your application modules.
+        # Logger configuration for the image_processing module
         'app.image_processing': {
             'level': 'DEBUG',
             'handlers': ['image_processing_handler', 'console_handler'],
             'propagate': False,
         },
+        # Logger configuration for the orchestration module
         'app.orchestration': {
             'level': 'DEBUG',
             'handlers': ['orchestration_handler', 'console_handler'],
             'propagate': False,
         },
+        # Logger configuration for the explanation module
         'app.explanation': {
             'level': 'DEBUG',
             'handlers': ['explanation_handler', 'console_handler'],
             'propagate': False,
         },
+        # Logger configuration for the API module
         'app.api': {
             'level': 'DEBUG',
             'handlers': ['api_handler', 'console_handler'],
             'propagate': False,
         },
+        # Logger configuration for the vector_store module
         'app.vector_store': {
             'level': 'DEBUG',
             'handlers': ['vector_store_handler', 'console_handler'],
             'propagate': False,
         },
+        # Logger configuration for the data module
         'app.data': {
             'level': 'DEBUG',
             'handlers': ['data_handler', 'console_handler'],
+            'propagate': False,
+        },
+        # Logger configuration for the query module
+        'app.query': {
+            'level': 'DEBUG',
+            'handlers': ['query_handler', 'console_handler'],
             'propagate': False,
         },
         # Configure pymongo to only log warnings or errors.

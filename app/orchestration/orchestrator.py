@@ -5,7 +5,7 @@ This module orchestrates the batch processing of celebrity images:
 - Retrieves celebrity records from MongoDB.
 - Downloads celebrity images.
 - Processes each image through the image processing pipeline (using process_image_array() from run_pipeline).
-- Saves both the original and composite images to a dedicated subfolder for each celebrity in "celebrity_images".
+- Saves both the original and composite images to a dedicated subfolder.
 - Upserts the extracted embedding (for simplicity, the first embedding) along with the attributes metadata into the Pinecone vector store.
 """
 
@@ -48,7 +48,7 @@ def download_image(image_url: str) -> np.ndarray:
             logger.info("Downloaded image from URL: %s", image_url)
             return image_cv
         except Exception as e:
-            logger.error("Error downloading image from URL %s: %s", image_url, e)
+            logger.error("Error downloading image from URL %s: %s", image_url, e, exc_info=True)
             raise e
     else:
         try:
@@ -58,7 +58,7 @@ def download_image(image_url: str) -> np.ndarray:
             logger.info("Loaded local image from path: %s", image_url)
             return image_cv
         except Exception as e:
-            logger.error("Error reading local image from path %s: %s", image_url, e)
+            logger.error("Error reading local image from path %s: %s", image_url, e, exc_info=True)
             raise e
 
 def orchestrate_embeddings(device: str = 'cpu'):
@@ -73,31 +73,32 @@ def orchestrate_embeddings(device: str = 'cpu'):
     """
     try:
         db_manager = DBManager()
-        celebrities = db_manager.get_all_documents()[:300]  # Limit to 10 records for testing
+        celebrities = db_manager.get_all_documents()[:300]  # For testing, limit to 300 records.
         if not celebrities:
             logger.error("No celebrity records found in the database.")
             return
         logger.info("Found %d celebrity records.", len(celebrities))
     except Exception as e:
-        logger.error("Error retrieving celebrity records: %s", e)
+        logger.error("Error retrieving celebrity records: %s", e, exc_info=True)
         return
 
     try:
         index_name = os.getenv("PINECONE_INDEX_NAME")
         index = pinecone_client.initialize_index(index_name=index_name, dimension=512)
     except Exception as e:
-        logger.error("Error initializing Pinecone index: %s", e)
+        logger.error("Error initializing Pinecone index: %s", e, exc_info=True)
         return
 
     processed_count = 0
+    total_records = len(celebrities)
     for celeb in celebrities:
         try:
-            # Use celebrity_id as both the unique ID and name.
-            logger.info("Processing celebrity record: %s", celeb.get("celebrity_id"))
             celebrity_id = str(celeb.get("celebrity_id"))
-            name = celebrity_id
+            logger.info("Processing celebrity record: %s", celebrity_id)
+            name = celebrity_id  # Using celebrity_id as name.
             image_url = celeb.get("image_url")
-            attributes = celeb.get("attributes")  # This is now the metadata.
+            attributes = celeb.get("attributes")  # Now this holds all metadata.
+
             if not image_url:
                 logger.warning("Celebrity %s has no image URL; skipping.", celebrity_id)
                 continue
@@ -111,21 +112,29 @@ def orchestrate_embeddings(device: str = 'cpu'):
                 logger.warning("No embeddings extracted for celebrity %s; skipping.", celebrity_id)
                 continue
 
-            # Use the first embedding for upsert.
             embedding = embeddings[0]
 
             # Prepare metadata from the attributes dictionary.
             metadata = attributes if attributes else {}
 
             # Upsert the embedding into Pinecone.
-            pinecone_client.upsert_embedding(index, celebrity_id=celebrity_id, embedding=embedding, metadata=metadata)
+            try:
+                upsert_result = pinecone_client.upsert_embedding(index, celebrity_id=celebrity_id, embedding=embedding, metadata=metadata)
+                # Check if upsert_result indicates success (this may vary depending on Pinecone API specifics).
+                if upsert_result is None or ("upsertedCount" in upsert_result and upsert_result["upsertedCount"] < 1):
+                    logger.error("Upsert failed for celebrity %s; skipping.", celebrity_id)
+                    continue
+            except Exception as upsert_e:
+                logger.error("Error during upsert for celebrity %s: %s", celebrity_id, upsert_e, exc_info=True)
+                continue
+
             logger.info("Upserted embedding for celebrity %s.", celebrity_id)
             processed_count += 1
 
         except Exception as e:
-            logger.error("Error processing celebrity record %s: %s", celeb.get("celebrity_id"), e)
+            logger.error("Error processing celebrity record %s: %s", celeb.get("celebrity_id"), e, exc_info=True)
 
-    logger.info("Orchestration complete. Processed %d out of %d records.", processed_count, len(celebrities))
+    logger.info("Orchestration complete. Processed %d out of %d records.", processed_count, total_records)
 
 if __name__ == "__main__":
     orchestrate_embeddings(device='cpu')
