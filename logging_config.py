@@ -5,7 +5,7 @@ import logging.config
 # Define the logging configuration dictionary
 log_config = {
     'version': 1,
-    'disable_existing_loggers': False,
+    'disable_existing_loggers': False,  # Keep loggers from imported modules
     'formatters': {
         'default': {
             'format': '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -16,7 +16,7 @@ log_config = {
         # Console handler for real-time logging output
         'console_handler': {
             'class': 'logging.StreamHandler',
-            'level': 'DEBUG',  # Adjust to INFO or higher for production if needed
+            'level': 'DEBUG',  # Change to INFO or higher in production
             'formatter': 'default',
         },
         # File handler for the image_processing module logs
@@ -25,7 +25,7 @@ log_config = {
             'level': 'DEBUG',
             'formatter': 'default',
             'filename': 'logs/image_processing.log',
-            'maxBytes': 10 * 1024 * 1024,  # 10 MB per file
+            'maxBytes': 10 * 1024 * 1024,  # 10 MB
             'backupCount': 5,
         },
         # File handler for the matching module logs
@@ -55,34 +55,58 @@ log_config = {
             'maxBytes': 10 * 1024 * 1024,
             'backupCount': 5,
         },
+        # File handler for the vector_space module logs
+        'vector_space_handler': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'level': 'DEBUG',
+            'formatter': 'default',
+            'filename': 'logs/vector_space.log',
+            'maxBytes': 10 * 1024 * 1024,
+            'backupCount': 5,
+        },
+        # File handler for the data module logs
+        'data_handler': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'level': 'DEBUG',
+            'formatter': 'default',
+            'filename': 'logs/data.log',
+            'maxBytes': 10 * 1024 * 1024,
+            'backupCount': 5,
+        },
     },
     'loggers': {
-        # Logger configuration for the image_processing module
         'app.image_processing': {
             'level': 'DEBUG',
             'handlers': ['image_processing_handler', 'console_handler'],
             'propagate': False,
         },
-        # Logger configuration for the matching module
         'app.matching': {
             'level': 'DEBUG',
             'handlers': ['matching_handler', 'console_handler'],
             'propagate': False,
         },
-        # Logger configuration for the explanation module
         'app.explanation': {
             'level': 'DEBUG',
             'handlers': ['explanation_handler', 'console_handler'],
             'propagate': False,
         },
-        # Logger configuration for the API module
         'app.api': {
             'level': 'DEBUG',
             'handlers': ['api_handler', 'console_handler'],
             'propagate': False,
         },
+        'app.vector_space': {
+            'level': 'DEBUG',
+            'handlers': ['vector_space_handler', 'console_handler'],
+            'propagate': False,
+        },
+        'app.data': {
+            'level': 'DEBUG',
+            'handlers': ['data_handler', 'console_handler'],
+            'propagate': False,
+        },
     },
-    # Root logger configuration—modules without an explicit logger will use this.
+    # Root logger configuration for modules without an explicit logger.
     'root': {
         'level': 'DEBUG',
         'handlers': ['console_handler']
@@ -96,12 +120,11 @@ for handler in log_config['handlers'].values():
         log_dir = os.path.dirname(filename)
         if log_dir:
             os.makedirs(log_dir, exist_ok=True)
-            # The FileHandler will create the file if it does not already exist.
 
 # Apply the logging configuration
 logging.config.dictConfig(log_config)
 
 if __name__ == "__main__":
-    # Example usage of the central logging configuration.
+    # Example usage: get a logger and log a test message.
     logger = logging.getLogger(__name__)
     logger.info("Central logging configuration has been initialized.")
