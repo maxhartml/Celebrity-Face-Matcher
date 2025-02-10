@@ -134,4 +134,10 @@ dmypy.json
 cython_debug/
 
 # kaggle data
-/celeba_data/
+celeba_data/
+
+# images
+images/
+results/
+test_images/
+processed_images/

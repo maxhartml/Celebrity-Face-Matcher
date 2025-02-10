@@ -20,7 +20,7 @@ from PIL import Image
 
 from dotenv import load_dotenv
 from app.data.db_manager import DBManager
-from app.vector_space import pinecone_client
+from app.vector_store import pinecone_client
 from app.image_processing import run_pipeline
 
 load_dotenv()

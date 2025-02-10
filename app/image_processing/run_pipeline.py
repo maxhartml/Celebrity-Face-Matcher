@@ -91,6 +91,24 @@ def process_image_array(image: np.ndarray, name: str, device: str = 'cpu'):
     
     return embeddings
 
+def process_image(image_path: str, name: str, device: str = 'cpu'):
+    """
+    Process a single image from disk through the full pipeline.
+
+    Args:
+        image_path (str): Path to the image file.
+        device (str): Device to run models on ('cpu' or 'cuda').
+
+    Returns:
+        list: A list of facial embeddings (one per detected face).
+    """
+    image = utils.read_image(image_path)
+    if image is None:
+        logger.error("Failed to read image from %s.", image_path)
+        return []
+    
+    return process_image_array(image, name, device)
+
 def main():
     """
     Main entry point for testing.
@@ -108,9 +126,8 @@ def main():
     
     for image_path in image_paths:
         logger.info("Processing image: %s", image_path)
-        image = utils.read_image(image_path)
         image_name = image_path.split('/')[-1].split('.')[0]
-        embeddings = process_image_array(image=image, name=image_name)
+        embeddings = process_image(image_path=image_path, name=image_name)
         logger.info("Processed %s: %d face embeddings extracted.", image_path, len(embeddings))
 
     logger.info("Image processing complete.")

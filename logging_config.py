@@ -29,11 +29,11 @@ log_config = {
             'backupCount': 5,
         },
         # File handler for the matching module logs
-        'matching_handler': {
+        'orchestration_handler': {
             'class': 'logging.handlers.RotatingFileHandler',
             'level': 'DEBUG',
             'formatter': 'default',
-            'filename': 'logs/matching.log',
+            'filename': 'logs/orchestration.log',
             'maxBytes': 10 * 1024 * 1024,
             'backupCount': 5,
         },
@@ -56,11 +56,11 @@ log_config = {
             'backupCount': 5,
         },
         # File handler for the vector_space module logs
-        'vector_space_handler': {
+        'vector_store_handler': {
             'class': 'logging.handlers.RotatingFileHandler',
             'level': 'DEBUG',
             'formatter': 'default',
-            'filename': 'logs/vector_space.log',
+            'filename': 'logs/vector_store.log',
             'maxBytes': 10 * 1024 * 1024,
             'backupCount': 5,
         },
@@ -81,9 +81,9 @@ log_config = {
             'handlers': ['image_processing_handler', 'console_handler'],
             'propagate': False,
         },
-        'app.matching': {
+        'app.orchestration': {
             'level': 'DEBUG',
-            'handlers': ['matching_handler', 'console_handler'],
+            'handlers': ['orchestration_handler', 'console_handler'],
             'propagate': False,
         },
         'app.explanation': {
@@ -96,9 +96,9 @@ log_config = {
             'handlers': ['api_handler', 'console_handler'],
             'propagate': False,
         },
-        'app.vector_space': {
+        'app.vector_store': {
             'level': 'DEBUG',
-            'handlers': ['vector_space_handler', 'console_handler'],
+            'handlers': ['vector_store_handler', 'console_handler'],
             'propagate': False,
         },
         'app.data': {

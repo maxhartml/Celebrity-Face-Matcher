@@ -48,15 +48,22 @@ def initialize_index(index_name: str = None, dimension: int = 512):
         if index_name not in existing_indexes:
             logger.info("Index '%s' not found. Creating new index with dimension %d.", index_name, dimension)
             # Read cloud and region from environment variables (or use defaults)
-            cloud = os.getenv("PINECONE_CLOUD")
-            region = os.getenv("PINECONE_REGION")
+            cloud = os.getenv("PINECONE_CLOUD", "aws")
+            region = os.getenv("PINECONE_REGION", "us-west-2")
             spec = ServerlessSpec(cloud=cloud, region=region)
-            pc.create_index(
-                name=index_name,
-                dimension=dimension,
-                metric="cosine",  # Using cosine similarity for this example.
-                spec=spec
-            )
+            try:
+                pc.create_index(
+                    name=index_name,
+                    dimension=dimension,
+                    metric="cosine",
+                    spec=spec
+                )
+            except Exception as create_e:
+                if "ALREADY_EXISTS" in str(create_e):
+                    logger.info("Index '%s' already exists (detected during creation).", index_name)
+                else:
+                    logger.error("Error creating index '%s': %s", index_name, create_e)
+                    raise create_e
         else:
             logger.info("Index '%s' already exists.", index_name)
     except Exception as e:
@@ -64,7 +71,7 @@ def initialize_index(index_name: str = None, dimension: int = 512):
         raise e
 
     try:
-        # Obtain a handle to the index.
+        # Connect to the index and return it.
         index = pc.Index(index_name)
         logger.info("Connected to Pinecone index '%s'.", index_name)
         return index
@@ -80,7 +87,7 @@ def upsert_embedding(index, celebrity_id: str, embedding: list, metadata: dict =
         index (Pinecone.Index): The Pinecone index object.
         celebrity_id (str): Unique identifier for the celebrity.
         embedding (list): The 512-dimensional embedding as a list of floats.
-        metadata (dict): Additional metadata (e.g., name, image URL).
+        metadata (dict): Additional metadata (e.g., name, image url).
 
     Returns:
         dict: The result of the upsert operation.
