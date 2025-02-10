@@ -25,7 +25,8 @@ class FaceAligner:
         self.desired_left_eye = desired_left_eye
         self.desired_face_width = desired_face_width
         self.desired_face_height = desired_face_height if desired_face_height is not None else desired_face_width
-        logger.info("FaceAligner initialized with desired size: (%d, %d)", self.desired_face_width, self.desired_face_height)
+        logger.info("FaceAligner initialized with desired size: (%d, %d)", 
+                    self.desired_face_width, self.desired_face_height)
     
     def align(self, image: np.ndarray, landmarks: np.ndarray) -> np.ndarray:
         """
@@ -40,38 +41,42 @@ class FaceAligner:
             np.ndarray: The aligned face image.
         """
         logger.debug("Starting face alignment using landmarks: %s", landmarks)
+        try:
+            # Extract the left and right eye coordinates
+            left_eye = landmarks[0]
+            right_eye = landmarks[1]
+            
+            # Compute the angle between the eyes
+            dY = right_eye[1] - left_eye[1]
+            dX = right_eye[0] - left_eye[0]
+            angle = np.degrees(np.arctan2(dY, dX))
+            logger.debug("Computed rotation angle: %.2f degrees", angle)
+            
+            # Compute desired right eye position
+            desired_right_eye_x = 1.0 - self.desired_left_eye[0]
+            
+            # Calculate the distance between the eyes in the input image
+            dist = np.sqrt((dX ** 2) + (dY ** 2))
+            desired_dist = (desired_right_eye_x - self.desired_left_eye[0]) * self.desired_face_width
+            scale = desired_dist / dist
+            logger.debug("Computed scale factor: %.2f", scale)
+            
+            # Compute the center of the eyes
+            eyes_center = ((left_eye[0] + right_eye[0]) / 2, (left_eye[1] + right_eye[1]) / 2)
+            logger.debug("Eyes center: %s", eyes_center)
+            
+            # Compute the affine transformation matrix for rotation and scaling
+            M = cv2.getRotationMatrix2D(eyes_center, angle, scale)
+            tX = self.desired_face_width * 0.5
+            tY = self.desired_face_height * self.desired_left_eye[1]
+            M[0, 2] += (tX - eyes_center[0])
+            M[1, 2] += (tY - eyes_center[1])
+            
+            # Apply the affine transformation
+            aligned_face = cv2.warpAffine(image, M, (self.desired_face_width, self.desired_face_height), flags=cv2.INTER_CUBIC)
+        except Exception as e:
+            logger.error("Error during face alignment: %s", e, exc_info=True)
+            raise e
         
-        # Extract the left and right eye coordinates
-        left_eye = landmarks[0]
-        right_eye = landmarks[1]
-        
-        # Compute the angle between the eyes
-        dY = right_eye[1] - left_eye[1]
-        dX = right_eye[0] - left_eye[0]
-        angle = np.degrees(np.arctan2(dY, dX))
-        logger.debug("Computed rotation angle: %.2f degrees", angle)
-        
-        # Compute desired right eye position
-        desired_right_eye_x = 1.0 - self.desired_left_eye[0]
-        
-        # Calculate the distance between the eyes in the input image
-        dist = np.sqrt((dX ** 2) + (dY ** 2))
-        desired_dist = (desired_right_eye_x - self.desired_left_eye[0]) * self.desired_face_width
-        scale = desired_dist / dist
-        logger.debug("Computed scale factor: %.2f", scale)
-        
-        # Compute the center of the eyes
-        eyes_center = ((left_eye[0] + right_eye[0]) / 2, (left_eye[1] + right_eye[1]) / 2)
-        logger.debug("Eyes center: %s", eyes_center)
-        
-        # Compute the affine transformation matrix for rotation and scaling
-        M = cv2.getRotationMatrix2D(eyes_center, angle, scale)
-        tX = self.desired_face_width * 0.5
-        tY = self.desired_face_height * self.desired_left_eye[1]
-        M[0, 2] += (tX - eyes_center[0])
-        M[1, 2] += (tY - eyes_center[1])
-        
-        # Apply the affine transformation
-        aligned_face = cv2.warpAffine(image, M, (self.desired_face_width, self.desired_face_height), flags=cv2.INTER_CUBIC)
         logger.info("Face alignment completed.")
         return aligned_face

@@ -26,7 +26,7 @@ from app.image_processing import run_pipeline
 # Load environment variables from .env
 load_dotenv()
 
-logger = logging.getLogger("app.matching.orchestrator")
+logger = logging.getLogger("app.orchestration.orchestrator")
 
 def download_image(image_url: str) -> np.ndarray:
     """
@@ -73,7 +73,7 @@ def orchestrate_embeddings(device: str = 'cpu'):
     """
     try:
         db_manager = DBManager()
-        celebrities = db_manager.get_all_documents()
+        celebrities = db_manager.get_all_documents()[:300]  # Limit to 10 records for testing
         if not celebrities:
             logger.error("No celebrity records found in the database.")
             return

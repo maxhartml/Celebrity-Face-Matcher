@@ -21,7 +21,11 @@ class FaceDetector:
             device (str): Device to run the model on ('cpu' or 'cuda').
         """
         logger.info("Initializing FaceDetector on device: %s", device)
-        self.detector = MTCNN(keep_all=True, device=device)
+        try:
+            self.detector = MTCNN(keep_all=True, device=device)
+        except Exception as e:
+            logger.error("Error initializing MTCNN: %s", e, exc_info=True)
+            raise e
     
     def detect_faces(self, image: np.ndarray):
         """
@@ -31,18 +35,23 @@ class FaceDetector:
             image (np.ndarray): Input image (BGR or RGB).
         
         Returns:
-            boxes (np.ndarray): Array of bounding boxes [x1, y1, x2, y2] for detected faces.
-            probs (np.ndarray): Confidence scores for each detection.
-            landmarks (list): List of landmarks (if available) for each detected face.
+            tuple: (boxes, probs, landmarks)
+                   boxes (np.ndarray): Array of bounding boxes [x1, y1, x2, y2] for detected faces.
+                   probs (np.ndarray): Confidence scores for each detection.
+                   landmarks (list): List of landmarks (if available) for each detected face.
         """
         logger.debug("Detecting faces in image with shape: %s", image.shape)
-        # Convert image to RGB if needed (MTCNN expects RGB images)
-        if image.shape[2] == 3:
-            image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        else:
-            image_rgb = image
-        
-        boxes, probs, landmarks = self.detector.detect(image_rgb, landmarks=True)
+        try:
+            # Convert image to RGB if needed (MTCNN expects RGB images)
+            if image.shape[2] == 3:
+                image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            else:
+                image_rgb = image
+            
+            boxes, probs, landmarks = self.detector.detect(image_rgb, landmarks=True)
+        except Exception as e:
+            logger.error("Error during face detection: %s", e, exc_info=True)
+            return None, None, None
         
         if boxes is None:
             logger.info("No faces detected in the image.")
