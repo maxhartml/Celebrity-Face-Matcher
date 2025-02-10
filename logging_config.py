@@ -5,7 +5,7 @@ import logging.config
 # Define the logging configuration dictionary
 log_config = {
     'version': 1,
-    'disable_existing_loggers': False,  # Keep loggers from imported modules
+    'disable_existing_loggers': False,  # Do not disable existing loggers
     'formatters': {
         'default': {
             'format': '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -16,7 +16,7 @@ log_config = {
         # Console handler for real-time logging output
         'console_handler': {
             'class': 'logging.StreamHandler',
-            'level': 'DEBUG',  # Change to INFO or higher in production
+            'level': 'DEBUG',  # Change to INFO or higher in production if needed
             'formatter': 'default',
         },
         # File handler for the image_processing module logs
@@ -25,7 +25,7 @@ log_config = {
             'level': 'DEBUG',
             'formatter': 'default',
             'filename': 'logs/image_processing.log',
-            'maxBytes': 10 * 1024 * 1024,  # 10 MB
+            'maxBytes': 10 * 1024 * 1024,
             'backupCount': 5,
         },
         # File handler for the matching module logs
@@ -75,6 +75,7 @@ log_config = {
         },
     },
     'loggers': {
+        # Logger configuration for your application modules.
         'app.image_processing': {
             'level': 'DEBUG',
             'handlers': ['image_processing_handler', 'console_handler'],
@@ -105,6 +106,12 @@ log_config = {
             'handlers': ['data_handler', 'console_handler'],
             'propagate': False,
         },
+        # Configure pymongo to only log warnings or errors.
+        'pymongo': {
+            'level': 'WARNING',
+            'handlers': ['console_handler'],
+            'propagate': False,
+        },
     },
     # Root logger configuration for modules without an explicit logger.
     'root': {
@@ -125,6 +132,5 @@ for handler in log_config['handlers'].values():
 logging.config.dictConfig(log_config)
 
 if __name__ == "__main__":
-    # Example usage: get a logger and log a test message.
     logger = logging.getLogger(__name__)
     logger.info("Central logging configuration has been initialized.")

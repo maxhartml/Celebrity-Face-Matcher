@@ -7,7 +7,7 @@ It provides functions to initialize an index, upsert vectors, and query vectors.
 
 import os
 import logging
-import pinecone
+from pinecone import Pinecone, ServerlessSpec  # New Pinecone client API
 from dotenv import load_dotenv
 
 # Load environment variables (if not already loaded)
@@ -15,23 +15,27 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-def initialize_index(index_name: str = None, dimension: int = 512) -> pinecone.Index:
+def initialize_index(index_name: str = None, dimension: int = 512):
     """
-    Initialize or connect to a Pinecone index.
+    Initialize or connect to a Pinecone index using the new Pinecone client API.
 
     Args:
-        index_name (str): The name of the index. If None, looks for PINECONE_INDEX_NAME env var.
+        index_name (str): The name of the index. If None, uses the PINECONE_INDEX_NAME env var.
         dimension (int): The dimensionality of the vectors (default is 512).
 
     Returns:
-        pinecone.Index: The Pinecone index object.
+        Pinecone.Index: The Pinecone index object.
     """
+    # Get API key from environment variables.
     api_key = os.getenv("PINECONE_API_KEY")
-    environment = os.getenv("PINECONE_ENVIRONMENT")
-    if not api_key or not environment:
-        logger.error("Pinecone API key or environment not set in environment variables.")
-        raise ValueError("Pinecone API key and environment must be provided.")
+    if not api_key:
+        logger.error("Pinecone API key not set in environment variables.")
+        raise ValueError("Pinecone API key must be provided.")
     
+    # Create an instance of the Pinecone client.
+    pc = Pinecone(api_key=api_key)
+    
+    # Determine the index name.
     if index_name is None:
         index_name = os.getenv("PINECONE_INDEX_NAME")
         if not index_name:
@@ -39,17 +43,20 @@ def initialize_index(index_name: str = None, dimension: int = 512) -> pinecone.I
             raise ValueError("Pinecone index name must be provided.")
     
     try:
-        pinecone.init(api_key=api_key, environment=environment)
-        logger.info("Initialized Pinecone in environment: %s", environment)
-    except Exception as e:
-        logger.error("Error initializing Pinecone: %s", e)
-        raise e
-
-    try:
-        existing_indexes = pinecone.list_indexes()
+        # List existing indexes.
+        existing_indexes = pc.list_indexes()
         if index_name not in existing_indexes:
             logger.info("Index '%s' not found. Creating new index with dimension %d.", index_name, dimension)
-            pinecone.create_index(name=index_name, dimension=dimension, metric="cosine")
+            # Read cloud and region from environment variables (or use defaults)
+            cloud = os.getenv("PINECONE_CLOUD")
+            region = os.getenv("PINECONE_REGION")
+            spec = ServerlessSpec(cloud=cloud, region=region)
+            pc.create_index(
+                name=index_name,
+                dimension=dimension,
+                metric="cosine",  # Using cosine similarity for this example.
+                spec=spec
+            )
         else:
             logger.info("Index '%s' already exists.", index_name)
     except Exception as e:
@@ -57,21 +64,23 @@ def initialize_index(index_name: str = None, dimension: int = 512) -> pinecone.I
         raise e
 
     try:
-        index = pinecone.Index(index_name)
+        # Obtain a handle to the index.
+        index = pc.Index(index_name)
+        logger.info("Connected to Pinecone index '%s'.", index_name)
         return index
     except Exception as e:
         logger.error("Error connecting to index '%s': %s", index_name, e)
         raise e
 
-def upsert_embedding(index: pinecone.Index, celebrity_id: str, embedding: list, metadata: dict = None) -> dict:
+def upsert_embedding(index, celebrity_id: str, embedding: list, metadata: dict = None) -> dict:
     """
     Upsert a celebrity embedding into the Pinecone index.
 
     Args:
-        index (pinecone.Index): The Pinecone index object.
+        index (Pinecone.Index): The Pinecone index object.
         celebrity_id (str): Unique identifier for the celebrity.
         embedding (list): The 512-dimensional embedding as a list of floats.
-        metadata (dict): Additional metadata (e.g., name, image url).
+        metadata (dict): Additional metadata (e.g., name, image URL).
 
     Returns:
         dict: The result of the upsert operation.
@@ -89,12 +98,12 @@ def upsert_embedding(index: pinecone.Index, celebrity_id: str, embedding: list, 
         logger.error("Error upserting embedding for celebrity ID %s: %s", celebrity_id, e)
         raise e
 
-def query_embedding(index: pinecone.Index, query_embedding: list, top_k: int = 5, include_metadata: bool = True) -> list:
+def query_embedding(index, query_embedding: list, top_k: int = 5, include_metadata: bool = True) -> list:
     """
     Query the Pinecone index for the most similar vectors to the query_embedding.
 
     Args:
-        index (pinecone.Index): The Pinecone index object.
+        index (Pinecone.Index): The Pinecone index object.
         query_embedding (list): The query embedding vector.
         top_k (int): The number of top matches to return.
         include_metadata (bool): Whether to include metadata in the result.

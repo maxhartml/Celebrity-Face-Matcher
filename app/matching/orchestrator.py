@@ -24,28 +24,42 @@ from app.vector_space import pinecone_client
 from app.image_processing import run_pipeline
 
 load_dotenv()
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app.matching.orchestrator")
 
 def download_image(image_url: str) -> np.ndarray:
     """
-    Download an image from a URL and convert it to an OpenCV BGR image.
+    Download an image from a URL or read it from a local file path,
+    converting it to an OpenCV BGR image.
 
     Args:
-        image_url (str): The URL of the image.
+        image_url (str): The URL or local file path of the image.
 
     Returns:
         np.ndarray: The image in BGR format.
     """
-    try:
-        response = requests.get(image_url, timeout=10)
-        response.raise_for_status()
-        image_pil = Image.open(BytesIO(response.content)).convert("RGB")
-        image_cv = cv2.cvtColor(np.array(image_pil), cv2.COLOR_RGB2BGR)
-        logger.info("Downloaded image from URL: %s", image_url)
-        return image_cv
-    except Exception as e:
-        logger.error("Error downloading image from URL %s: %s", image_url, e)
-        raise e
+    # Check if the path starts with 'http://' or 'https://'
+    if image_url.startswith("http://") or image_url.startswith("https://"):
+        try:
+            response = requests.get(image_url, timeout=10)
+            response.raise_for_status()
+            image_pil = Image.open(BytesIO(response.content)).convert("RGB")
+            image_cv = cv2.cvtColor(np.array(image_pil), cv2.COLOR_RGB2BGR)
+            logger.info("Downloaded image from URL: %s", image_url)
+            return image_cv
+        except Exception as e:
+            logger.error("Error downloading image from URL %s: %s", image_url, e)
+            raise e
+    else:
+        # Assume it's a local file path.
+        try:
+            image_cv = cv2.imread(image_url)
+            if image_cv is None:
+                raise ValueError(f"Local file at {image_url} could not be read.")
+            logger.info("Loaded local image from path: %s", image_url)
+            return image_cv
+        except Exception as e:
+            logger.error("Error reading local image from path %s: %s", image_url, e)
+            raise e
 
 def orchestrate_embeddings(device: str = 'cpu'):
     """
@@ -78,8 +92,8 @@ def orchestrate_embeddings(device: str = 'cpu'):
     processed_count = 0
     for celeb in celebrities:
         try:
-            celebrity_id = str(celeb.get("_id"))
-            name = celeb.get("name", "Unknown")
+            celebrity_id = str(celeb.get("celebrity_id"))
+            name = celeb.get("name")
             image_url = celeb.get("image_url")
             if not image_url:
                 logger.warning("Celebrity %s (%s) has no image URL; skipping.", celebrity_id, name)
