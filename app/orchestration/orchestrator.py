@@ -6,7 +6,7 @@ This module orchestrates the batch processing of celebrity images:
 - Downloads celebrity images.
 - Processes each image through the image processing pipeline (using process_image_array() from run_pipeline).
 - Saves both the original and composite images to a dedicated subfolder.
-- Upserts the extracted embedding (for simplicity, the first embedding) along with the attributes metadata into the Pinecone vector store.
+- Upserts the extracted embedding (for simplicity, the first embedding) along with combined metadata (flattened attributes and image_url) into the Pinecone vector store.
 """
 
 import os
@@ -69,11 +69,12 @@ def orchestrate_embeddings(device: str = 'cpu'):
         - Download the image.
         - Process the image via process_image_array() to extract embeddings.
         - Save both the original and composite images to a dedicated subfolder.
-        - Upsert the first embedding (for simplicity) along with the attributes metadata into Pinecone.
+        - Upsert the first embedding (for simplicity) along with a flattened metadata dictionary (merging attributes and image_url) into Pinecone.
     """
     try:
         db_manager = DBManager()
-        celebrities = db_manager.get_all_documents()[:300]  # For testing, limit to 300 records.
+        # For testing, you might limit the number of records.
+        celebrities = db_manager.get_all_documents()[:300]
         if not celebrities:
             logger.error("No celebrity records found in the database.")
             return
@@ -95,9 +96,10 @@ def orchestrate_embeddings(device: str = 'cpu'):
         try:
             celebrity_id = str(celeb.get("celebrity_id"))
             logger.info("Processing celebrity record: %s", celebrity_id)
-            name = celebrity_id  # Using celebrity_id as name.
+            # Use celebrity_id as both the unique ID and the name.
+            name = celebrity_id  
             image_url = celeb.get("image_url")
-            attributes = celeb.get("attributes")  # Now this holds all metadata.
+            attributes = celeb.get("attributes")  # This holds the enriched attribute data.
 
             if not image_url:
                 logger.warning("Celebrity %s has no image URL; skipping.", celebrity_id)
@@ -108,19 +110,28 @@ def orchestrate_embeddings(device: str = 'cpu'):
 
             # Process the image using process_image_array().
             embeddings = run_pipeline.process_image_array(image=image, name=name, device=device)
-            if not embeddings:
-                logger.warning("No embeddings extracted for celebrity %s; skipping.", celebrity_id)
+            if not embeddings or embeddings[0] is None:
+                logger.warning("No valid embedding extracted for celebrity %s; skipping.", celebrity_id)
                 continue
 
             embedding = embeddings[0]
 
-            # Prepare metadata from the attributes dictionary.
-            metadata = attributes if attributes else {}
+            # Prepare metadata: flatten the attributes dictionary into a flat metadata dictionary.
+            metadata = {"image_url": image_url}
+            if attributes and isinstance(attributes, dict):
+                for key, value in attributes.items():
+                    # Optionally, you can convert value to string if needed
+                    metadata[f"attr_{key}"] = value
 
             # Upsert the embedding into Pinecone.
             try:
-                upsert_result = pinecone_client.upsert_embedding(index, celebrity_id=celebrity_id, embedding=embedding, metadata=metadata)
-                # Check if upsert_result indicates success (this may vary depending on Pinecone API specifics).
+                upsert_result = pinecone_client.upsert_embedding(
+                    index,
+                    celebrity_id=celebrity_id,
+                    embedding=embedding,
+                    metadata=metadata
+                )
+                # Check upsert_result if needed (depends on your Pinecone client version).
                 if upsert_result is None or ("upsertedCount" in upsert_result and upsert_result["upsertedCount"] < 1):
                     logger.error("Upsert failed for celebrity %s; skipping.", celebrity_id)
                     continue
