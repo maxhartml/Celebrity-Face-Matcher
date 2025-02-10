@@ -71,6 +71,9 @@ def parse_attr_file(attr_file: str, images_folder: str, top_n: int):
     except Exception as e:
         logger.error("Error reading attributes file %s: %s", attr_file, e)
         raise e
+    
+    if top_n == -1:
+        top_n = len(df)
 
     # Select the first top_n rows.
     df_subset = df.head(top_n)
@@ -133,4 +136,4 @@ def ingest_celebrities(dataset_id: str, output_dir: str, top_n: int):
 if __name__ == "__main__":
     DATASET_ID = "jessicali9530/celeba-dataset"  # Replace if needed.
     OUTPUT_DIR = os.path.join(os.getcwd(), "celeba_data")
-    ingest_celebrities(dataset_id=DATASET_ID, output_dir=OUTPUT_DIR, top_n=1000)
+    ingest_celebrities(dataset_id=DATASET_ID, output_dir=OUTPUT_DIR, top_n=-1)

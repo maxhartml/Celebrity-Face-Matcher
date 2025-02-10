@@ -59,24 +59,27 @@ class DBManager:
             logger.error("Error inserting document: %s", e)
             raise e
 
-    def insert_documents(self, documents: list):
+    def insert_documents(self, documents, batch_size=1000):
         """
-        Insert multiple documents into the collection.
-        
+        Insert documents in batches to avoid connection timeouts.
         Args:
-            documents (list): A list of celebrity metadata dictionaries.
-        
+            documents (list): List of documents to insert.
+            batch_size (int): Number of documents per batch.
         Returns:
-            List of inserted document _ids.
+            list: List of inserted document IDs.
         """
+        inserted_ids = []
         try:
-            result = self.collection.insert_many(documents)
-            logger.info("Inserted %d documents.", len(result.inserted_ids))
-            return result.inserted_ids
+            for i in range(0, len(documents), batch_size):
+                logger.info("Inserting batch %d to %d...", i, i+batch_size)
+                batch = documents[i:i+batch_size]
+                result = self.collection.insert_many(batch)
+                inserted_ids.extend(result.inserted_ids)
+            return inserted_ids
         except Exception as e:
-            logger.error("Error inserting documents: %s", e)
+            self.logger.error("Error inserting documents: %s", e)
             raise e
-
+        
     def find_document(self, query: dict):
         """
         Retrieve a single document based on a query.

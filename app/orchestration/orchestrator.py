@@ -6,7 +6,7 @@ This module orchestrates the batch processing of celebrity images:
 - Downloads celebrity images.
 - Processes each image through the image processing pipeline (using process_image_array() from run_pipeline).
 - Saves both the original and composite images to a dedicated subfolder for each celebrity in "celebrity_images".
-- Upserts the extracted embedding (for simplicity, the first embedding) along with celebrity metadata into the Pinecone vector store.
+- Upserts the extracted embedding (for simplicity, the first embedding) along with the attributes metadata into the Pinecone vector store.
 """
 
 import os
@@ -23,12 +23,14 @@ from app.data.db_manager import DBManager
 from app.vector_store import pinecone_client
 from app.image_processing import run_pipeline
 
+# Load environment variables from .env
 load_dotenv()
+
 logger = logging.getLogger("app.matching.orchestrator")
 
 def download_image(image_url: str) -> np.ndarray:
     """
-    Download an image from a URL or read it from a local file path,
+    Download an image from a URL or load it from a local file path,
     converting it to an OpenCV BGR image.
 
     Args:
@@ -37,7 +39,6 @@ def download_image(image_url: str) -> np.ndarray:
     Returns:
         np.ndarray: The image in BGR format.
     """
-    # Check if the path starts with 'http://' or 'https://'
     if image_url.startswith("http://") or image_url.startswith("https://"):
         try:
             response = requests.get(image_url, timeout=10)
@@ -50,7 +51,6 @@ def download_image(image_url: str) -> np.ndarray:
             logger.error("Error downloading image from URL %s: %s", image_url, e)
             raise e
     else:
-        # Assume it's a local file path.
         try:
             image_cv = cv2.imread(image_url)
             if image_cv is None:
@@ -69,7 +69,7 @@ def orchestrate_embeddings(device: str = 'cpu'):
         - Download the image.
         - Process the image via process_image_array() to extract embeddings.
         - Save both the original and composite images to a dedicated subfolder.
-        - Upsert the first embedding (for simplicity) along with metadata into Pinecone.
+        - Upsert the first embedding (for simplicity) along with the attributes metadata into Pinecone.
     """
     try:
         db_manager = DBManager()
@@ -92,38 +92,38 @@ def orchestrate_embeddings(device: str = 'cpu'):
     processed_count = 0
     for celeb in celebrities:
         try:
+            # Use celebrity_id as both the unique ID and name.
+            logger.info("Processing celebrity record: %s", celeb.get("celebrity_id"))
             celebrity_id = str(celeb.get("celebrity_id"))
-            name = celeb.get("name")
+            name = celebrity_id
             image_url = celeb.get("image_url")
+            attributes = celeb.get("attributes")  # This is now the metadata.
             if not image_url:
-                logger.warning("Celebrity %s (%s) has no image URL; skipping.", celebrity_id, name)
+                logger.warning("Celebrity %s has no image URL; skipping.", celebrity_id)
                 continue
 
-            # Download the image directly into a NumPy array.
+            # Download or load the image.
             image = download_image(image_url)
 
-            # Process the image using process_image_array() directly.
-            embeddings = run_pipeline.process_image_array(image=image, device=device, name=name)
+            # Process the image using process_image_array().
+            embeddings = run_pipeline.process_image_array(image=image, name=name, device=device)
             if not embeddings:
-                logger.warning("No embeddings extracted for celebrity %s (%s); skipping.", celebrity_id, name)
+                logger.warning("No embeddings extracted for celebrity %s; skipping.", celebrity_id)
                 continue
 
-            # For simplicity, take the first embedding.
+            # Use the first embedding for upsert.
             embedding = embeddings[0]
 
-            # Prepare metadata for Pinecone.
-            metadata = {
-                "name": name,
-                "image_url": image_url
-            }
+            # Prepare metadata from the attributes dictionary.
+            metadata = attributes if attributes else {}
 
             # Upsert the embedding into Pinecone.
             pinecone_client.upsert_embedding(index, celebrity_id=celebrity_id, embedding=embedding, metadata=metadata)
-            logger.info("Upserted embedding for celebrity %s (%s).", celebrity_id, name)
+            logger.info("Upserted embedding for celebrity %s.", celebrity_id)
             processed_count += 1
 
         except Exception as e:
-            logger.error("Error processing celebrity record %s: %s", celeb.get("_id"), e)
+            logger.error("Error processing celebrity record %s: %s", celeb.get("celebrity_id"), e)
 
     logger.info("Orchestration complete. Processed %d out of %d records.", processed_count, len(celebrities))
 
