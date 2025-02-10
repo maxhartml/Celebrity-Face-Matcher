@@ -75,9 +75,6 @@ def orchestrate_embeddings(device: str = 'cpu'):
         logger.error("Error initializing Pinecone index: %s", e)
         return
 
-    base_results_folder = os.path.join(os.getcwd(), "celebrity_images")
-    os.makedirs(base_results_folder, exist_ok=True)
-
     processed_count = 0
     for celeb in celebrities:
         try:

@@ -49,7 +49,7 @@ def initialize_index(index_name: str = None, dimension: int = 512) -> pinecone.I
         existing_indexes = pinecone.list_indexes()
         if index_name not in existing_indexes:
             logger.info("Index '%s' not found. Creating new index with dimension %d.", index_name, dimension)
-            pinecone.create_index(name=index_name, dimension=dimension)
+            pinecone.create_index(name=index_name, dimension=dimension, metric="cosine")
         else:
             logger.info("Index '%s' already exists.", index_name)
     except Exception as e:
@@ -71,7 +71,7 @@ def upsert_embedding(index: pinecone.Index, celebrity_id: str, embedding: list, 
         index (pinecone.Index): The Pinecone index object.
         celebrity_id (str): Unique identifier for the celebrity.
         embedding (list): The 512-dimensional embedding as a list of floats.
-        metadata (dict): Additional metadata (e.g., name, biography).
+        metadata (dict): Additional metadata (e.g., name, image url).
 
     Returns:
         dict: The result of the upsert operation.

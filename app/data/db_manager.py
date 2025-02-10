@@ -30,7 +30,7 @@ class DBManager:
             logger.error("MONGODB_URI is not set in the environment variables.")
             raise ValueError("MONGODB_URI must be provided.")
         self.db_name = os.getenv("MONGODB_DB_NAME", "celebrityDB")
-        self.collection_name = os.getenv("MONGODB_COLLECTION", "celebrities")
+        self.collection_name = os.getenv("MONGODB_COLLECTION_NAME", "celebrities")
         
         try:
             self.client = MongoClient(self.uri)
