@@ -114,6 +114,3 @@ if uploaded_file is not None:
                 )
         else:
             st.error("Composite image file not found.")
-
-    # Optionally, clean up the temporary file if desired.
-    # os.remove(temp_file_path)
