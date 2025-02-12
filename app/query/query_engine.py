@@ -3,8 +3,8 @@ import csv
 import cv2
 import numpy as np
 import logging
-import logging_config  # Ensure central logging is configured
-from app.vector_store import pinecone_client
+import app.logging_config as logging_config  # Ensure central logging is configured
+from app.vector_store.pinecone_client import PineconeClient
 from app.image_processing import run_pipeline
 from app.image_processing import utils
 from app.config import DEVICE, TOP_K
@@ -16,17 +16,16 @@ class QueryEngine:
         """
         Initialize the QueryEngine.
         
-        Args:
-            device (str): The device on which to run models ('cpu' or 'cuda').
-            top_k (int): The number of top matches to query.
+        Uses the hardcoded DEVICE and TOP_K from config.py.
+        It creates an instance of the PineconeClient to connect to the index.
         """
         self.device = DEVICE
         self.top_k = TOP_K
-        # Here we assume that PINECONE_INDEX_NAME is set in your environment or elsewhere;
-        # if you wish, you can also hardcode it similarly.
-        self.index_name = os.getenv("PINECONE_INDEX_NAME")
-        self.index = pinecone_client.initialize_index(index_name=self.index_name)
-        logger.info("QueryEngine initialized on device %s with index '%s'.", self.device, self.index_name)
+        # Use PineconeClient (which encapsulates index initialization)
+        self.pc_client = PineconeClient()  
+        self.index = self.pc_client.index
+        # Optionally, if you want to print the index name from your PineconeClient instance:
+        logger.info("QueryEngine initialized on device %s with index '%s'.", self.device, self.pc_client.index_name)
 
     def process_query_image(self, image_path: str) -> list:
         """
@@ -40,6 +39,7 @@ class QueryEngine:
         """
         logger.info("Processing query image: %s", image_path)
         base_name = os.path.splitext(os.path.basename(image_path))[0]
+        # process_image() returns a tuple (composite_image, embeddings)
         embeddings = run_pipeline.process_image(image_path, device=self.device, name=base_name)
         if not embeddings or embeddings[0] is None:
             logger.error("No embeddings extracted from image %s", image_path)
@@ -60,7 +60,7 @@ class QueryEngine:
             list: A list of match dictionaries.
         """
         try:
-            matches = pinecone_client.query_embedding(self.index, query_vector, top_k=self.top_k, include_metadata=True)
+            matches = self.pc_client.query_embedding(query_vector, include_metadata=True)
             logger.info("Query returned %d matches.", len(matches))
             return matches
         except Exception as e:
@@ -106,7 +106,7 @@ class QueryEngine:
             raise ValueError("No valid match images could be loaded.")
         
         composite_image = cv2.hconcat([query_resized] + match_images)
-        results_folder = os.path.join(os.getcwd(), "images/results")
+        results_folder = os.path.join(os.getcwd(), "images", "results")
         composite_filename = f"{os.path.splitext(os.path.basename(query_image_path))[0]}_query_results.jpg"
         saved_path = utils.save_image(composite_image, results_folder, composite_filename)
         logger.info("Composite query result image saved to %s", saved_path)

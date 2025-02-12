@@ -19,7 +19,7 @@ import pandas as pd
 from dotenv import load_dotenv
 from config import OUTPUT_DIR, DATASET_ID, AUTO_INGEST_TOP_N  # Ensure the config is loaded
 from app.data.db_manager import DBManager
-import logging_config 
+import app.logging_config as logging_config 
 
 # Load environment variables from .env file
 load_dotenv()

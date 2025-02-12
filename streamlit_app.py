@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 import pandas as pd
 import logging
-import logging_config  # Assumes central logging is configured
+import app.logging_config as logging_config  # Assumes central logging is configured
 from dotenv import load_dotenv
 
 # Import the QueryEngine class from our refactored query module.

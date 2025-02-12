@@ -1,6 +1,6 @@
 import sys
 import logging
-import logging_config  # Ensure central logging is configured
+import app.logging_config as logging_config  # Ensure central logging is configured
 from app.query.query_engine import QueryEngine
 
 logger = logging.getLogger("app.query.run_query_CLI")

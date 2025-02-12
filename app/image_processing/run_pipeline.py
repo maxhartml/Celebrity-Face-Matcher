@@ -20,8 +20,7 @@ import sys
 import logging
 import cv2
 import numpy as np
-import logging_config  # Assumes this is at the project root
-
+import app.logging_config as logging_config  # Assumes this is at the project root
 from .face_detector import FaceDetector
 from .face_aligner import FaceAligner
 from .face_encoder import FaceEncoder

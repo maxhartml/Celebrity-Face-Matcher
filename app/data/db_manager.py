@@ -149,7 +149,7 @@ class DBManager:
         except Exception as e:
             logger.error("Error deleting documents: %s", e)
 
-    def get_all_documents(self):
+    def get_all_documents(self, limit=None):
         """
         Retrieve all documents from the collection.
         
@@ -157,7 +157,10 @@ class DBManager:
             list: A list of all celebrity documents.
         """
         try:
-            documents = list(self.collection.find())
+            if limit:
+                documents = list(self.collection.find().limit(limit))
+            else:
+                documents = list(self.collection.find())
             logger.info("Retrieved %d documents.", len(documents))
             return documents
         except Exception as e:
