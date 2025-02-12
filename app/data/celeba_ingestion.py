@@ -17,12 +17,13 @@ import os
 import logging
 import pandas as pd
 from dotenv import load_dotenv
-
+from config import OUTPUT_DIR, DATASET_ID, AUTO_INGEST_TOP_N  # Ensure the config is loaded
 from app.data.db_manager import DBManager
+import logging_config 
 
 # Load environment variables from .env file
 load_dotenv()
-import logging_config  # Ensure the logging configuration is loaded
+ # Ensure the logging configuration is loaded
 logger = logging.getLogger("app.data.celeba_ingestion")
 
 def download_celeba_subset(dataset_id: str, output_dir: str):
@@ -134,6 +135,4 @@ def ingest_celebrities(dataset_id: str, output_dir: str, top_n: int):
         raise e
 
 if __name__ == "__main__":
-    DATASET_ID = "jessicali9530/celeba-dataset"  # Replace if needed.
-    OUTPUT_DIR = os.path.join(os.getcwd(), "celeba_data")
-    ingest_celebrities(dataset_id=DATASET_ID, output_dir=OUTPUT_DIR, top_n=-1)
+    ingest_celebrities(dataset_id=DATASET_ID, output_dir=OUTPUT_DIR, top_n=AUTO_INGEST_TOP_N)

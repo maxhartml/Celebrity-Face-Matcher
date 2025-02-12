@@ -1,23 +1,18 @@
 import os
-import sys
 import csv
 import cv2
 import numpy as np
 import logging
 import logging_config  # Ensure central logging is configured
-from dotenv import load_dotenv
-
 from app.vector_store import pinecone_client
 from app.image_processing import run_pipeline
 from app.image_processing import utils
-
-# Load environment variables
-load_dotenv()
+from app.config import DEVICE, TOP_K
 
 logger = logging.getLogger("app.query.query_engine")
 
 class QueryEngine:
-    def __init__(self, device: str = 'cpu', top_k: int = 5):
+    def __init__(self):
         """
         Initialize the QueryEngine.
         
@@ -25,12 +20,12 @@ class QueryEngine:
             device (str): The device on which to run models ('cpu' or 'cuda').
             top_k (int): The number of top matches to query.
         """
-        self.device = device
-        self.top_k = top_k
+        self.device = DEVICE
+        self.top_k = TOP_K
+        # Here we assume that PINECONE_INDEX_NAME is set in your environment or elsewhere;
+        # if you wish, you can also hardcode it similarly.
         self.index_name = os.getenv("PINECONE_INDEX_NAME")
-        if not self.index_name:
-            raise ValueError("PINECONE_INDEX_NAME is not set in the environment.")
-        self.index = pinecone_client.initialize_index(index_name=self.index_name, dimension=512)
+        self.index = pinecone_client.initialize_index(index_name=self.index_name)
         logger.info("QueryEngine initialized on device %s with index '%s'.", self.device, self.index_name)
 
     def process_query_image(self, image_path: str) -> list:
@@ -45,11 +40,11 @@ class QueryEngine:
         """
         logger.info("Processing query image: %s", image_path)
         base_name = os.path.splitext(os.path.basename(image_path))[0]
-        _, embeddings = run_pipeline.process_image(image_path, device=self.device, name=base_name)
+        embeddings = run_pipeline.process_image(image_path, device=self.device, name=base_name)
         if not embeddings or embeddings[0] is None:
             logger.error("No embeddings extracted from image %s", image_path)
             return []
-        # Ensure the query vector is a list.
+        # Convert the first embedding to a list if needed.
         query_vector = embeddings[0].tolist() if hasattr(embeddings[0], "tolist") else embeddings[0]
         logger.info("Extracted query embedding for image %s.", image_path)
         return query_vector
@@ -84,7 +79,6 @@ class QueryEngine:
         Returns:
             str: The full path to the saved composite image.
         """
-        # Load query image.
         query_img = cv2.imread(query_image_path)
         if query_img is None:
             raise ValueError(f"Could not load query image from {query_image_path}")
@@ -97,7 +91,7 @@ class QueryEngine:
             metadata = match.get("metadata", {})
             match_img_path = metadata.get("image_url")
             if not match_img_path:
-                logger.warning("No image path found in metadata for match ID %s.", match.get("id"))
+                logger.warning("No image path in metadata for match ID %s.", match.get("id"))
                 continue
             match_img = cv2.imread(match_img_path)
             if match_img is None:
@@ -133,7 +127,7 @@ class QueryEngine:
         for match in matches:
             metadata = match.get("metadata", {})
             for key in metadata.keys():
-                if key != "image_url":  # Exclude image_url from aggregation.
+                if key != "image_url":
                     attribute_keys.add(key)
         attribute_keys = sorted(attribute_keys)
         
@@ -191,9 +185,8 @@ class QueryEngine:
         if not matches:
             raise ValueError("No matches found for the query image.")
         composite_image_path = self.compose_results_image(image_path, matches)
-        results_folder = os.path.join(os.getcwd(), "images/results")
         csv_filename = f"{os.path.splitext(os.path.basename(image_path))[0]}_query_results.csv"
-        csv_filepath = os.path.join(results_folder, csv_filename)
+        csv_filepath = os.path.join(os.getcwd(), "images", "results", csv_filename)
         self.export_matches_to_csv(matches, csv_filepath)
         return {
             "composite_image": composite_image_path,

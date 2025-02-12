@@ -3,7 +3,7 @@ import logging
 import logging_config  # Ensure central logging is configured
 from app.query.query_engine import QueryEngine
 
-logger = logging.getLogger("app.query.query_engine")
+logger = logging.getLogger("app.query.run_query_CLI")
 
 def main():
     """
@@ -11,14 +11,14 @@ def main():
     Must be called with an image path as a command-line argument.
     
     Example:
-      python -m app.query.query_pipeline /path/to/your/test_image.jpg
+      python -m app.query.run_query_CLI /path/to/your/test_image.jpg
     """
     if len(sys.argv) < 2:
-        logger.error("No image path provided. Please run:\npython -m app.query.query_pipeline /path/to/your/test_image.jpg")
+        logger.error("No image path provided. Please run:\npython -m app.query.run_query_CLI /path/to/your/test_image.jpg")
         sys.exit(1)
     
     image_path = sys.argv[1]
-    engine = QueryEngine(device='cpu', top_k=5)
+    engine = QueryEngine()
     try:
         results = engine.run_query(image_path)
         logger.info("Composite image saved at: %s", results["composite_image"])

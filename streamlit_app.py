@@ -1,22 +1,20 @@
 import os
-import sys
 import tempfile
+import streamlit as st
 import cv2
 import numpy as np
 import pandas as pd
-import streamlit as st
 import logging
-import logging_config  # Ensure central logging is configured
+import logging_config  # Assumes central logging is configured
 from dotenv import load_dotenv
 
-# Import functions from your codebase
-from app.query import query_engine
-from app.image_processing import utils
+# Import the QueryEngine class from our refactored query module.
+from app.query.query_engine import QueryEngine
 
 # Load environment variables from .env
 load_dotenv()
 
-# Set Streamlit page config
+# Set Streamlit page configuration
 st.set_page_config(page_title="Celebrity Face Matcher", layout="wide")
 
 # Sidebar: project description and pipeline overview
@@ -27,12 +25,9 @@ st.sidebar.markdown(
 
     **Pipeline Overview:**
     1. **Upload:** Upload your image.
-    2. **Preprocessing:** The image is processed to detect and align the face.
-    3. **Embedding Extraction:** A 512-dimensional embedding is computed using a deep learning model.
-    4. **Vector Search:** Your embedding is compared to celebrity embeddings stored in Pinecone.
-    5. **Results:** The top matching celebrity images and their attribute details are displayed and exported.
-    
-    This app is built using Streamlit for rapid prototyping.
+    2. **Processing:** The image is processed to detect and align the face and extract a 512-dimensional embedding.
+    3. **Query:** Your embedding is compared to celebrity embeddings stored in Pinecone.
+    4. **Results:** The top matches (with their attribute details) are returned as a composite image and exported to CSV.
     """
 )
 
@@ -44,81 +39,81 @@ st.write("Upload an image to find your celebrity look-alike based on facial embe
 uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
 
 if uploaded_file is not None:
-    # Save the uploaded image to a temporary file.
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
-        temp_file.write(uploaded_file.getvalue())
-        temp_file_path = temp_file.name
+    # Use the original filename from the uploaded file.
+    original_filename = uploaded_file.name  # e.g. "Dylan.jpg"
+    # Save the uploaded file to a temporary directory with its original name.
+    temp_dir = tempfile.gettempdir()
+    temp_file_path = os.path.join(temp_dir, original_filename)
+    with open(temp_file_path, "wb") as f:
+        f.write(uploaded_file.getvalue())
 
     st.image(uploaded_file, caption="Uploaded Image", width=300)
-    
-    st.markdown("### Processing Image")
-    st.write("Your image is being processed through the pipeline to extract facial embeddings and query the Pinecone vector store for similar celebrity images.")
-    
-    # Query the image using your query_pipeline function.
-    matches = query_engine.query_image(temp_file_path, device='cpu', top_k=5)
-    
+    st.markdown("### Processing and Querying")
+    st.write("Your image is being processed through the pipeline and queried against celebrity embeddings...")
+
+    # Instantiate the QueryEngine (which uses your hardcoded config in your codebase)
+    engine = QueryEngine()
+
+    # Run the complete query pipeline (this call will save the composite image and CSV only once)
+    try:
+        results = engine.run_query(temp_file_path)
+    except Exception as e:
+        st.error(f"Error running query: {e}")
+        st.stop()
+
+    matches = results.get("matches", [])
+    composite_image_path = results.get("composite_image", "")
+    csv_file_path = results.get("csv_file", "")
+
     if not matches:
         st.error("No matches found for the uploaded image.")
     else:
         st.markdown("### Match Details")
-        match_rows = []
+        # Build a DataFrame from the match results.
+        rows = []
         for match in matches:
-            row = {
-                "image_id": match.get("id", ""),
-                "score": match.get("score", "")
-            }
+            row = {"image_id": match.get("id", ""), "score": match.get("score", "")}
             metadata = match.get("metadata", {})
-            # Flatten metadata (excluding 'image_url' which is used to load the image)
+            # Flatten metadata (excluding 'image_url' which is used for loading the image)
             for key, value in metadata.items():
                 if key != "image_url":
                     row[key] = value
-            match_rows.append(row)
-        st.dataframe(pd.DataFrame(match_rows))
-        
+            rows.append(row)
+        st.dataframe(pd.DataFrame(rows))
+
         st.markdown("### Composite Query Result")
-        results_folder = os.path.join(os.getcwd(), "images/results")
-        composite_filename = f"{os.path.splitext(os.path.basename(temp_file_path))[0]}_query_results.jpg"
-        try:
-            composite_result_path = query_engine.compose_query_results(
-                temp_file_path, matches, results_folder, composite_filename, target_height=224
-            )
-            composite_img = cv2.imread(composite_result_path)
-            if composite_img is not None:
-                # Convert BGR to RGB for display in Streamlit.
-                composite_img = cv2.cvtColor(composite_img, cv2.COLOR_BGR2RGB)
-                st.image(composite_img, caption="Composite Query Result", use_container_width=True)
-            else:
-                st.error("Failed to load composite image.")
-        except Exception as e:
-            st.error(f"Error composing query results: {e}")
-        
+        composite_img = cv2.imread(composite_image_path)
+        if composite_img is not None:
+            # Convert from BGR to RGB for Streamlit display.
+            composite_img = cv2.cvtColor(composite_img, cv2.COLOR_BGR2RGB)
+            st.image(composite_img, caption="Composite Query Result", use_container_width=True)
+        else:
+            st.error("Failed to load composite image.")
+
         st.markdown("### Download Results")
         # Download CSV button
-        csv_filename = f"{os.path.splitext(os.path.basename(temp_file_path))[0]}_query_results.csv"
-        csv_filepath = os.path.join(results_folder, csv_filename)
-        try:
-            query_engine.export_matches_to_csv(matches, csv_filepath)
-            with open(csv_filepath, "rb") as csv_file:
+        if os.path.exists(csv_file_path):
+            with open(csv_file_path, "rb") as csv_file:
                 st.download_button(
                     label="Download Match Results CSV",
                     data=csv_file,
-                    file_name=csv_filename,
+                    file_name=os.path.basename(csv_file_path),
                     mime="text/csv"
                 )
-        except Exception as e:
-            st.error(f"Error exporting query results to CSV: {e}")
+        else:
+            st.error("CSV file not found.")
         
         # Download composite image button
-        try:
-            with open(composite_result_path, "rb") as img_file:
+        if os.path.exists(composite_image_path):
+            with open(composite_image_path, "rb") as img_file:
                 st.download_button(
                     label="Download Composite Image",
                     data=img_file,
-                    file_name=composite_filename,
+                    file_name=os.path.basename(composite_image_path),
                     mime="image/jpeg"
                 )
-        except Exception as e:
-            st.error(f"Error providing download for composite image: {e}")
-    
-    # Optionally, remove the temporary file if desired.
+        else:
+            st.error("Composite image file not found.")
+
+    # Optionally, clean up the temporary file if desired.
     # os.remove(temp_file_path)
