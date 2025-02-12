@@ -93,6 +93,8 @@ class QueryEngine:
             if not match_img_path:
                 logger.warning("No image path in metadata for match ID %s.", match.get("id"))
                 continue
+            # Adjust the match image path if necessary.
+            match_img_path = utils.adjust_image_path(match_img_path)
             match_img = cv2.imread(match_img_path)
             if match_img is None:
                 logger.warning("Could not load match image from %s", match_img_path)

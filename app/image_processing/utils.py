@@ -154,3 +154,41 @@ def get_all_image_paths(folder: str) -> list:
         pattern = os.path.join(folder, ext)
         image_paths.extend(glob.glob(pattern))
     return image_paths
+
+import os
+import logging
+
+logger = logging.getLogger(__name__)
+
+import os
+import logging
+
+logger = logging.getLogger(__name__)
+
+def adjust_image_path(image_path: str) -> str:
+    """
+    Adjusts the image path from the remote absolute path to the local path.
+    
+    For example, if your remote paths start with:
+        /home/ubuntu/celeb/Celebrity-Face-Matcher/
+    and your local images are stored under:
+        <cwd>/celeba_data/
+    then this function will remove the remote base and prepend the local base.
+    
+    It also ensures that you don't duplicate the local folder name if it's already present.
+    """
+    remote_base = "/home/ubuntu/celeb/Celebrity-Face-Matcher/"
+    local_base = os.path.join(os.getcwd(), "celeba_data") + os.sep
+
+    if image_path.startswith(remote_base):
+        # Remove the remote base from the path.
+        relative_path = image_path[len(remote_base):]
+        # If the relative path already starts with the local folder name, remove it.
+        local_folder_name = "celeba_data" + os.sep
+        if relative_path.startswith(local_folder_name):
+            relative_path = relative_path[len(local_folder_name):]
+        adjusted = os.path.join(local_base, relative_path)
+        logger.debug("Adjusted image path from '%s' to '%s'", image_path, adjusted)
+        return adjusted
+    else:
+        return image_path
