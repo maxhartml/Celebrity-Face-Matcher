@@ -74,7 +74,7 @@ def orchestrate_embeddings(device: str = 'cpu'):
     try:
         db_manager = DBManager()
         # For testing, you might limit the number of records.
-        celebrities = db_manager.get_all_documents()[:300]
+        celebrities = db_manager.get_all_documents()[:200]
         if not celebrities:
             logger.error("No celebrity records found in the database.")
             return
@@ -116,6 +116,7 @@ def orchestrate_embeddings(device: str = 'cpu'):
 
             embedding = embeddings[0]
 
+            logger.info("Extracted embedding: %s", embedding)
             # Prepare metadata: flatten the attributes dictionary into a flat metadata dictionary.
             metadata = {"image_url": image_url}
             if attributes and isinstance(attributes, dict):
