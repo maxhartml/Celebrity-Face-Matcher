@@ -37,24 +37,6 @@ log_config = {
             'maxBytes': 10 * 1024 * 1024,
             'backupCount': 5,
         },
-        # File handler for the explanation module logs
-        'explanation_handler': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'level': 'DEBUG',
-            'formatter': 'default',
-            'filename': 'logs/explanation.log',
-            'maxBytes': 10 * 1024 * 1024,
-            'backupCount': 5,
-        },
-        # File handler for the API module logs
-        'api_handler': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'level': 'DEBUG',
-            'formatter': 'default',
-            'filename': 'logs/api.log',
-            'maxBytes': 10 * 1024 * 1024,
-            'backupCount': 5,
-        },
         # File handler for the vector_store module logs
         'vector_store_handler': {
             'class': 'logging.handlers.RotatingFileHandler',
@@ -94,18 +76,6 @@ log_config = {
         'app.orchestration': {
             'level': 'DEBUG',
             'handlers': ['orchestration_handler', 'console_handler'],
-            'propagate': False,
-        },
-        # Logger configuration for the explanation module
-        'app.explanation': {
-            'level': 'DEBUG',
-            'handlers': ['explanation_handler', 'console_handler'],
-            'propagate': False,
-        },
-        # Logger configuration for the API module
-        'app.api': {
-            'level': 'DEBUG',
-            'handlers': ['api_handler', 'console_handler'],
             'propagate': False,
         },
         # Logger configuration for the vector_store module
@@ -150,7 +120,3 @@ for handler in log_config['handlers'].values():
 
 # Apply the logging configuration
 logging.config.dictConfig(log_config)
-
-if __name__ == "__main__":
-    logger = logging.getLogger(__name__)
-    logger.info("Central logging configuration has been initialized.")

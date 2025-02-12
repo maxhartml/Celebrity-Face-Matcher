@@ -30,8 +30,6 @@ pandas==2.2.3
 pillow==10.2.0
 pinecone==6.0.0
 pinecone-client==5.0.1
-pinecone-plugin-inference==1.1.0
-pinecone-plugin-interface==0.0.7
 protobuf==5.29.3
 pyarrow==19.0.0
 pydeck==0.9.1
