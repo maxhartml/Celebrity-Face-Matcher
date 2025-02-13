@@ -6,7 +6,7 @@ import clip
 from PIL import Image
 from huggingface_hub import InferenceClient
 from app.config import HF_API_TOKEN, DEVICE, NUMBER_OF_CAPTIONS
-from app.llm.candidate_response import load_candidate_texts  # This function returns a list of candidate texts
+from app.llm.candidate_response import cache_candidate_texts  # This function returns a list of candidate texts
 from app import logging_config  # Ensure central logging is configured
 
 # Load environment variables (if not already loaded in config)
@@ -38,6 +38,7 @@ class LLMExplainer:
             ValueError: If the HF_API_TOKEN is not set.
             Exception: For any errors during model loading.
         """
+        logger.debug("Initializing LLMExplainer with text_model_name='%s', clip_model_name='%s', device='%s'", text_model_name, clip_model_name, device)
         self.device = device
 
         # Initialize InferenceClient for text generation.
@@ -66,7 +67,7 @@ class LLMExplainer:
 
         # Load candidate texts for caption selection.
         try:
-            self.candidate_texts = load_candidate_texts()
+            self.candidate_texts = cache_candidate_texts()
             logger.info("Loaded %d candidate texts for CLIP captioning.", len(self.candidate_texts))
         except Exception as e:
             logger.error("Error loading candidate texts: %s", e, exc_info=True)
@@ -90,6 +91,7 @@ class LLMExplainer:
         Raises:
             Exception: Propagates any exception raised during text generation.
         """
+        logger.debug("Generating text explanation for query_caption='%s' and match_caption='%s'", query_caption, match_caption)
         prompt = (
             f"Query image description: '{query_caption}'.\n"
             f"Matched image description: '{match_caption}'.\n"
@@ -136,14 +138,17 @@ class LLMExplainer:
         Raises:
             Exception: If any step (opening, preprocessing, tokenizing, encoding) fails.
         """
+        logger.debug("Generating CLIP caption for image_path='%s'", image_path)
         try:
             image = Image.open(image_path).convert("RGB")
+            logger.info("Image '%s' opened and converted to RGB.", image_path)
         except Exception as e:
             logger.error("Error opening image '%s': %s", image_path, e, exc_info=True)
             raise e
 
         try:
             image_input = self.clip_preprocess(image).unsqueeze(0).to(self.device)
+            logger.info("Image '%s' preprocessed successfully.", image_path)
         except Exception as e:
             logger.error("Error preprocessing image '%s': %s", image_path, e, exc_info=True)
             raise e
@@ -151,6 +156,7 @@ class LLMExplainer:
         try:
             # Tokenize candidate texts.
             text_inputs = torch.cat([clip.tokenize(text) for text in self.candidate_texts]).to(self.device)
+            logger.info("Candidate texts tokenized successfully.")
         except Exception as e:
             logger.error("Error tokenizing candidate texts: %s", e, exc_info=True)
             raise e
@@ -159,6 +165,7 @@ class LLMExplainer:
             with torch.no_grad():
                 image_features = self.clip_model.encode_image(image_input)
                 text_features = self.clip_model.encode_text(text_inputs)
+                logger.info("Image and text features encoded successfully.")
         except Exception as e:
             logger.error("Error encoding image/text with CLIP for '%s': %s", image_path, e, exc_info=True)
             raise e
@@ -174,7 +181,7 @@ class LLMExplainer:
             # Now correctly index the similarity score using the row 0
             best_score = similarities[0, best_idx].item()
             best_caption = self.candidate_texts[best_idx]
-            logger.info("CLIP selected caption: '%s' for image '%s'.", best_caption, image_path)
+            logger.info("CLIP selected caption: '%s' with score: %f for image '%s'.", best_caption, best_score, image_path)
             best_caption_and_score = {"caption": best_caption, "score": best_score}
             return best_caption_and_score
         except Exception as e:
@@ -195,20 +202,24 @@ class LLMExplainer:
         Returns:
             str: A generated explanation of the similarity.
         """
+        logger.debug("Explaining similarity between query_image_path='%s' and match_image_path='%s'", query_image_path, match_image_path)
         try:
             query_caption = self.get_clip_caption(query_image_path)
+            logger.info("Generated caption for query image '%s': '%s'", query_image_path, query_caption)
         except Exception as e:
             logger.error("Failed to generate caption for query image '%s': %s", query_image_path, e, exc_info=True)
             query_caption = "No caption available"
 
         try:
             match_caption = self.get_clip_caption(match_image_path)
+            logger.info("Generated caption for match image '%s': '%s'", match_image_path, match_caption)
         except Exception as e:
             logger.error("Failed to generate caption for match image '%s': %s", match_image_path, e, exc_info=True)
             match_caption = "No caption available"
 
         try:
             explanation = self.generate_text_explanation(query_caption, match_caption)
+            logger.info("Generated explanation for similarity: '%s'", explanation)
             return explanation, query_caption, match_caption
         except Exception as e:
             logger.error("Failed to generate explanation: %s", e, exc_info=True)
