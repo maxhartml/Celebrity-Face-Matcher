@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 import pandas as pd
 import logging
-import app.logging_config as logging_config  # Assumes central logging is configured
+import app.logging_config as logging_config  # Ensure central logging is configured
 from dotenv import load_dotenv
 
 # Import the QueryEngine class from our refactored query module.
@@ -27,7 +27,7 @@ st.sidebar.markdown(
     1. **Upload:** Upload your image.
     2. **Processing:** The image is processed to detect and align the face and extract a 512-dimensional embedding.
     3. **Query:** Your embedding is compared to celebrity embeddings stored in Pinecone.
-    4. **Results:** The top matches (with their attribute details) are returned as a composite image and exported to CSV.
+    4. **Results:** The top matches (with their attribute details) are returned as a composite image and exported to CSV, along with a generated explanation.
     """
 )
 
@@ -64,6 +64,7 @@ if uploaded_file is not None:
     matches = results.get("matches", [])
     composite_image_path = results.get("composite_image", "")
     csv_file_path = results.get("csv_file", "")
+    explanation = results.get("explanation", "No explanation available.")
 
     if not matches:
         st.error("No matches found for the uploaded image.")
@@ -89,6 +90,9 @@ if uploaded_file is not None:
             st.image(composite_img, caption="Composite Query Result", use_container_width=True)
         else:
             st.error("Failed to load composite image.")
+
+        st.markdown("### Explanation")
+        st.write(explanation)
 
         st.markdown("### Download Results")
         # Download CSV button

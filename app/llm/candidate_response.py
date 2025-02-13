@@ -1,84 +1,93 @@
 import random
+import clip
+from app.config import NUMBER_OF_CAPTIONS
 
-def load_candidate_texts(num_candidates: int = 200) -> list:
+def is_text_within_context(text: str, max_tokens: int = 77) -> bool:
     """
-    Dynamically generate a set of candidate captions describing facial attributes in detail.
+    Check if the given text, when tokenized by CLIP's tokenizer, has at most max_tokens.
     
     Args:
-        num_candidates (int): The number of candidate captions to generate.
+        text (str): The text to check.
+        max_tokens (int): Maximum allowed tokens.
         
     Returns:
-        list: A sorted list of candidate caption strings that are less than 77 tokens.
+        bool: True if token count <= max_tokens, else False.
     """
-    # Basic adjectives and descriptions
+    try:
+        tokens = clip.tokenize(text)  # Returns a tensor of shape (1, token_count)
+        token_count = tokens.shape[1]
+        return token_count <= max_tokens
+    except Exception as e:
+        print(f"Error tokenizing text: {e}")
+        return False
+
+def load_candidate_texts() -> list:
+    """
+    Dynamically generate a set of concise candidate captions describing facial attributes.
+    Each caption is a single sentence that lists key features, separated by commas.
+    Only captions within CLIP's 77-token limit are accepted.
+    
+    Returns:
+        list: A sorted list of candidate caption strings.
+    """
+    # Expanded, yet concise, descriptor lists.
     adjectives = [
         "cheerful", "confident", "mysterious", "elegant", "friendly",
         "vibrant", "thoughtful", "radiant", "serene", "intense",
-        "charismatic", "engaging", "dynamic", "refined", "exuberant"
+        "charismatic", "engaging", "dynamic", "refined", "exuberant",
+        "melancholic", "somber", "grim", "haggard", "robust",
+        "delicate", "stark", "bold", "uninhibited", "subdued"
     ]
     
-    # Detailed descriptors for eyes, hair, facial features, and skin.
     eye_descriptions = [
-        "bright, sparkling eyes that captivate", "deep, soulful eyes reflecting emotion",
-        "expressive eyes that reveal hidden stories", "piercing eyes that command attention",
-        "warm, inviting eyes that exude kindness", "vivid eyes with an intense gaze",
-        "clear, focused eyes radiating determination", "gentle eyes that comfort the soul",
-        "intriguing eyes hinting at untold mysteries", "striking eyes blending boldness and softness"
+        "bright eyes", "deep eyes", "soulful eyes", "piercing eyes", "warm eyes",
+        "vivid eyes", "clear eyes", "gentle eyes", "intriguing eyes", "striking eyes",
+        "dull eyes", "bleary eyes", "narrow eyes", "glazed eyes", "sharp eyes"
     ]
+    
     hair_descriptions = [
-        "neatly styled hair framing the face perfectly", "luxurious wavy hair that adds softness",
-        "a modern, edgy haircut exuding confidence", "long, flowing hair with natural elegance",
-        "well-groomed hair speaking of sophistication", "distinctive curly hair bursting with character",
-        "slicked-back hair emphasizing strong features", "elegantly styled hair with timeless appeal",
-        "naturally textured hair that highlights uniqueness", "artfully arranged hair merging style with ease"
+        "neat hair", "wavy hair", "edgy cut", "long hair", "well-groomed hair",
+        "curly hair", "slick hair", "elegant hair", "textured hair", "artful hair",
+        "unkempt hair", "frizzy hair", "sparse hair", "thick hair", "short hair"
     ]
+    
     facial_features = [
-        "a well-defined jawline conveying strength", "sculpted cheekbones that catch the light",
-        "a subtle yet inviting smile that brightens the face", "a strong chin adding character",
-        "balanced features with an air of refinement", "delicate features exuding grace",
-        "expressive eyebrows framing the eyes beautifully", "a captivating smile drawing you in",
-        "a poised expression that exudes calm", "an engaging visage marked by striking details"
+        "defined jawline", "sculpted cheekbones", "inviting smile", "strong chin",
+        "balanced features", "delicate features", "expressive brows", "engaging face",
+        "asymmetrical features", "rough features", "weathered face", "sharp features",
+        "smooth features", "facial scars"
     ]
+    
     skin_descriptions = [
-        "clear, smooth skin with a natural glow", "radiant skin exuding health",
-        "a flawless complexion with even tones", "luminous skin with an almost ethereal quality",
-        "skin glowing with healthy radiance", "soft, natural skin that invites touch",
-        "visibly smooth skin hinting at youthfulness", "skin that appears well-cared-for and vibrant",
-        "an effortlessly glowing complexion", "skin with a subtle, enchanting allure"
+        "clear skin", "radiant skin", "flawless complexion", "luminous skin", "glowing skin",
+        "soft skin", "smooth skin", "blemished skin", "rough skin", "tanned skin",
+        "pale skin", "oily skin", "scarred skin", "sallow skin", "dull skin"
     ]
-    accessory_descriptions = [
-        "sporting stylish glasses", "wearing a chic hat that complements the look",
-        "adorned with subtle jewelry", "accented with tasteful earrings",
-        "with a signature accessory that stands out", "showing off a trendy scarf",
-        "featuring a fashionable watch", "dressed with an eye-catching necklace"
-    ]
+    
     expression_descriptions = [
-        "with a beaming, joyful smile", "with a thoughtful and introspective gaze",
-        "radiating a calm and composed expression", "with an animated and lively demeanor",
-        "exhibiting a subtle smirk that hints at mischief", "with an earnest, engaging look",
-        "displaying a warm and approachable expression", "with a look of determined focus"
+        "joyful smile", "thoughtful gaze", "calm look", "lively demeanor", "subtle smirk",
+        "warm expression", "focused look", "sullen look", "vacant stare", "intense glare",
+        "scowling", "content smile"
     ]
-    background_descriptions = [
-        "set against a minimalist urban backdrop", "with a soft, blurred natural background",
-        "against an artistic, abstract setting", "with a vivid and colorful backdrop",
-        "set in a cozy, indoor environment", "against a serene and calming landscape",
-        "with a dynamic and modern background", "against a backdrop that enhances the subject"
+    
+    age_descriptions = [
+        "early 20s", "mid 20s", "late 20s", "early 30s", "mid 30s",
+        "late 30s", "early 40s", "mid 40s", "late 40s", "50s",
+        "youthful", "mature", "aged", "young", "old"
     ]
     
     candidate_texts = set()
     
     # Generate candidate captions until we have the desired number.
-    while len(candidate_texts) < num_candidates:
+    while len(candidate_texts) < NUMBER_OF_CAPTIONS:
         caption = (
-            f"A portrait of a {random.choice(adjectives)} individual with {random.choice(eye_descriptions)}, "
-            f"{random.choice(hair_descriptions)}, and {random.choice(facial_features)}. Their skin is {random.choice(skin_descriptions)}. "
-            f"They are {random.choice(expression_descriptions)} and {random.choice(accessory_descriptions)}. "
-            f"The image is set {random.choice(background_descriptions)}."
+            f"{random.choice(adjectives)}, {random.choice(eye_descriptions)}, "
+            f"{random.choice(hair_descriptions)}, {random.choice(facial_features)}, "
+            f"{random.choice(skin_descriptions)}, {random.choice(expression_descriptions)}, "
+            f"{random.choice(age_descriptions)}"
         )
-        # Check if the caption is less than 77 tokens (approximation using whitespace splitting).
-        if len(caption.split()) < 52:
-            print(len(caption.split()))
+        # Check that the caption is within the token limit.
+        if is_text_within_context(caption):
             candidate_texts.add(caption)
-        # Else, skip and generate a new caption.
     
     return sorted(list(candidate_texts))

@@ -3,7 +3,7 @@ import csv
 import cv2
 import numpy as np
 import logging
-import logging_config  # Ensure central logging is configured
+import app.logging_config  # Ensure central logging is configured
 from app.vector_store.pinecone_client import PineconeClient
 from app.image_processing import run_pipeline, utils
 from app.config import DEVICE, TOP_K
