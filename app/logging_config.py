@@ -64,6 +64,15 @@ log_config = {
             'maxBytes': 10 * 1024 * 1024,
             'backupCount': 5,
         },
+        # New file handler for the LLM module logs
+        'llm_handler': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'level': 'DEBUG',
+            'formatter': 'default',
+            'filename': 'logs/llm.log',
+            'maxBytes': 10 * 1024 * 1024,
+            'backupCount': 5,
+        },
     },
     'loggers': {
         # Logger configuration for the image_processing module
@@ -96,6 +105,12 @@ log_config = {
             'handlers': ['query_handler', 'console_handler'],
             'propagate': False,
         },
+        # New logger configuration for the LLM module
+        'app.llm': {
+            'level': 'DEBUG',
+            'handlers': ['llm_handler', 'console_handler'],
+            'propagate': False,
+        },
         # Configure pymongo to only log warnings or errors.
         'pymongo': {
             'level': 'WARNING',
@@ -120,3 +135,7 @@ for handler in log_config['handlers'].values():
 
 # Apply the logging configuration
 logging.config.dictConfig(log_config)
+
+if __name__ == "__main__":
+    logger = logging.getLogger(__name__)
+    logger.info("Central logging configuration has been initialized.")

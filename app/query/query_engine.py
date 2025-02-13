@@ -3,11 +3,11 @@ import csv
 import cv2
 import numpy as np
 import logging
-import app.logging_config as logging_config  # Ensure central logging is configured
+import logging_config  # Ensure central logging is configured
 from app.vector_store.pinecone_client import PineconeClient
-from app.image_processing import run_pipeline
-from app.image_processing import utils
+from app.image_processing import run_pipeline, utils
 from app.config import DEVICE, TOP_K
+from app.llm.llm_explainer import LLMExplainer
 
 logger = logging.getLogger("app.query.query_engine")
 
@@ -16,16 +16,15 @@ class QueryEngine:
         """
         Initialize the QueryEngine.
         
-        Uses the hardcoded DEVICE and TOP_K from config.py.
-        It creates an instance of the PineconeClient to connect to the index.
+        Uses DEVICE and TOP_K from config.py. Creates an instance of the PineconeClient and
+        an ExplanationGenerator for generating textual explanations.
         """
         self.device = DEVICE
         self.top_k = TOP_K
-        # Use PineconeClient (which encapsulates index initialization)
         self.pc_client = PineconeClient()  
         self.index = self.pc_client.index
-        # Optionally, if you want to print the index name from your PineconeClient instance:
-        logger.info("QueryEngine initialized on device %s with index '%s'.", self.device, self.pc_client.index_name)
+        self.explainer = LLMExplainer()
+        logger.info("QueryEngine initialized on device '%s' with index '%s'.", self.device, self.pc_client.index_name)
 
     def process_query_image(self, image_path: str) -> list:
         """
@@ -35,7 +34,7 @@ class QueryEngine:
             image_path (str): Path to the image file.
         
         Returns:
-            list: A list of embeddings (one per detected face).
+            list: The first facial embedding as a list.
         """
         logger.info("Processing query image: %s", image_path)
         base_name = os.path.splitext(os.path.basename(image_path))[0]
@@ -44,9 +43,8 @@ class QueryEngine:
         if not embeddings or embeddings[0] is None:
             logger.error("No embeddings extracted from image %s", image_path)
             return []
-        # Convert the first embedding to a list if needed.
         query_vector = embeddings[0].tolist() if hasattr(embeddings[0], "tolist") else embeddings[0]
-        logger.info("Extracted query embedding for image %s.", image_path)
+        logger.info("Extracted query embedding for image '%s'.", image_path)
         return query_vector
 
     def query_index(self, query_vector: list) -> list:
@@ -93,7 +91,7 @@ class QueryEngine:
             if not match_img_path:
                 logger.warning("No image path in metadata for match ID %s.", match.get("id"))
                 continue
-            # Adjust the match image path if necessary.
+            # Adjust image path if necessary.
             match_img_path = utils.adjust_image_path(match_img_path)
             match_img = cv2.imread(match_img_path)
             if match_img is None:
@@ -132,15 +130,11 @@ class QueryEngine:
                 if key != "image_url":
                     attribute_keys.add(key)
         attribute_keys = sorted(attribute_keys)
-        
         headers = ["image_id", "score"] + attribute_keys
         rows = []
         totals = {key: 0 for key in attribute_keys}
-        
         for match in matches:
-            row = {}
-            row["image_id"] = match.get("id", "")
-            row["score"] = match.get("score", "")
+            row = {"image_id": match.get("id", ""), "score": match.get("score", "")}
             metadata = match.get("metadata", {})
             for key in attribute_keys:
                 value = metadata.get(key, 0)
@@ -150,7 +144,6 @@ class QueryEngine:
                 except Exception:
                     totals[key] += 0
             rows.append(row)
-        
         try:
             with open(csv_filepath, "w", newline="") as csvfile:
                 writer = csv.DictWriter(csvfile, fieldnames=headers)
@@ -166,32 +159,44 @@ class QueryEngine:
             raise e
         return csv_filepath
 
-    def run_query(self, image_path: str) -> dict:
+    def run_query(self, query_image_path: str) -> dict:
         """
         Run the complete query pipeline:
         - Process the query image.
-        - Query Pinecone.
-        - Compose composite image.
+        - Query the Pinecone index.
+        - Compose composite results image.
         - Export match results to CSV.
+        - Generate a textual explanation using the LLM module.
         
         Args:
             image_path (str): Path to the query image.
         
         Returns:
-            dict: A dictionary with keys 'composite_image', 'csv_file', and 'matches'.
+            dict: A dictionary with keys 'composite_image', 'csv_file', 'matches', and 'explanation'.
         """
-        query_vector = self.process_query_image(image_path)
+        query_vector = self.process_query_image(query_image_path)
         if not query_vector:
             raise ValueError("Failed to extract a valid embedding from the query image.")
         matches = self.query_index(query_vector)
         if not matches:
             raise ValueError("No matches found for the query image.")
-        composite_image_path = self.compose_results_image(image_path, matches)
-        csv_filename = f"{os.path.splitext(os.path.basename(image_path))[0]}_query_results.csv"
+        composite_image_path = self.compose_results_image(query_image_path, matches)
+        csv_filename = f"{os.path.splitext(os.path.basename(query_image_path))[0]}_query_results.csv"
         csv_filepath = os.path.join(os.getcwd(), "images", "results", csv_filename)
         self.export_matches_to_csv(matches, csv_filepath)
+        # For explanation generation, use the top match only.
+        top_match = matches[0]
+        match_img_path = top_match.get("metadata", {}).get("image_url")
+        if not match_img_path:
+            explanation = "No explanation available (no match image URL)."
+        else:
+            # Adjust path if necessary.
+            match_img_path = utils.adjust_image_path(match_img_path)
+            # Use the new LLM module for explanation.
+            explanation = self.explainer.explain_similarity(query_image_path, match_img_path)
         return {
             "composite_image": composite_image_path,
             "csv_file": csv_filepath,
-            "matches": matches
+            "matches": matches,
+            "explanation": explanation
         }

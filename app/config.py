@@ -5,6 +5,9 @@ from dotenv import load_dotenv
 # Load environment variables from a .env file
 load_dotenv()
 
+# Hugging Face settings
+HF_API_TOKEN=os.getenv("HF_API_TOKEN")  # API token for Hugging Face
+
 # Pinecone settings
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")  # API key for Pinecone
 PINECONE_REGION = os.getenv("PINECONE_REGION")  # Region for Pinecone
