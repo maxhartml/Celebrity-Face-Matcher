@@ -38,14 +38,20 @@ class QueryEngine:
         """
         logger.info("Processing query image: %s", image_path)
         base_name = os.path.splitext(os.path.basename(image_path))[0]
-        # process_image() returns a tuple (composite_image, embeddings)
-        embeddings = run_pipeline.process_image(image_path, device=self.device, name=base_name)
-        if not embeddings or embeddings[0] is None:
+        # process_image() returns a tuple (composite_image, embeddings, processed_image_path)
+        embedding, probs, processed_image_path = run_pipeline.process_image(
+            image_path, device=self.device, name=base_name
+        )
+        logger.info("Extracted %d embeddings from image '%s'.", len(embedding), image_path)
+        
+        # Use an explicit check to avoid ambiguous boolean evaluation:
+        if embedding is None or (hasattr(embedding, "size") and embedding.size == 0):
             logger.error("No embeddings extracted from image %s", image_path)
             return []
-        query_vector = embeddings[0].tolist() if hasattr(embeddings[0], "tolist") else embeddings[0]
+            
+        query_vector = embedding.tolist() if hasattr(embedding, "tolist") else embedding
         logger.info("Extracted query embedding for image '%s'.", image_path)
-        return query_vector
+        return query_vector, probs, processed_image_path
 
     def query_index(self, query_vector: list) -> list:
         """
@@ -174,7 +180,7 @@ class QueryEngine:
         Returns:
             dict: A dictionary with keys 'composite_image', 'csv_file', 'matches', and 'explanation'.
         """
-        query_vector = self.process_query_image(query_image_path)
+        query_vector, probs, processed_image_path = self.process_query_image(query_image_path)
         if not query_vector:
             raise ValueError("Failed to extract a valid embedding from the query image.")
         matches = self.query_index(query_vector)
@@ -193,10 +199,18 @@ class QueryEngine:
             # Adjust path if necessary.
             match_img_path = utils.adjust_image_path(match_img_path)
             # Use the new LLM module for explanation.
-            explanation = self.explainer.explain_similarity(query_image_path, match_img_path)
-        return {
-            "composite_image": composite_image_path,
-            "csv_file": csv_filepath,
-            "matches": matches,
-            "explanation": explanation
-        }
+            explanation, query_caption, match_caption = self.explainer.explain_similarity(query_image_path, match_img_path)
+            
+            package_up = {
+                "composite_image": composite_image_path,
+                "csv_file": csv_filepath,
+                "query_embedding": query_vector,
+                "probs": probs,
+                "processed_image": processed_image_path,
+                "matches": matches,
+                "explanation": explanation,
+                "query_caption": query_caption,
+                "match_caption": match_caption
+            }
+                
+        return package_up

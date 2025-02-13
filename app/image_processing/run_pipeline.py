@@ -87,8 +87,10 @@ def process_image_array(image: np.ndarray, name: str, device: str = 'cpu'):
     results_folder = os.path.join(os.getcwd(), "images/processed_images")
     composite_filename = f"{name}_processed_image.jpg"  # Default name when no filename is provided.
     utils.save_image(composite_image, results_folder, composite_filename)
-    
-    return embeddings
+    processed_image_path = os.path.join(results_folder, composite_filename)
+    logger.info("Saved processed image to %s.", processed_image_path)
+    # return the first facial embedding
+    return embeddings[0], probs[0], processed_image_path
 
 def process_image(image_path: str, name: str, device: str = 'cpu'):
     """

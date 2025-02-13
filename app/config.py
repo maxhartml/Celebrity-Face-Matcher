@@ -26,4 +26,4 @@ EMBEDDING_DIMENSION = 512  # Dimension of the embeddings
 DATASET_ID = "jessicali9530/celeba-dataset"  # Dataset ID for the project
 OUTPUT_DIR = os.path.join(os.getcwd(), "celeba_data")  # Directory to store output data
 AUTO_INGEST_TOP_N = -1  # Set to -1 to ingest all records, otherwise specify the number of records to ingest
-NUMBER_OF_CAPTIONS = 1000  # Number of captions to generate for each image
+NUMBER_OF_CAPTIONS = 500  # Number of captions to generate for each image

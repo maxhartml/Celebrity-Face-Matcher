@@ -101,20 +101,26 @@ class PineconeClient:
             logger.error("Error upserting embedding for celebrity ID %s: %s", celebrity_id, e)
             raise e
 
-    def query_embedding(self, query_embedding: list, include_metadata: bool = True) -> list:
+    def query_embedding(self, query_embedding: list, include_metadata: bool = True, include_values: bool = True) -> list:
         """
-        Query the Pinecone index for the most similar vectors to the query_embedding.
+        Query the Pinecone index for the most similar vectors to the query_embedding,
+        including the actual embedding vectors if include_values is True.
 
         Args:
             query_embedding (list): The query embedding vector.
-            top_k (int): The number of top matches to return.
             include_metadata (bool): Whether to include metadata in the result.
+            include_values (bool): Whether to include the actual vector values.
 
         Returns:
-            list: A list of matching vectors, each including id, score, and optionally metadata.
+            list: A list of matching vectors, each including id, score, and optionally metadata and values.
         """
         try:
-            response = self.index.query(vector=query_embedding, top_k=TOP_K, include_metadata=include_metadata)
+            response = self.index.query(
+                vector=query_embedding,
+                top_k=TOP_K,
+                include_metadata=include_metadata,
+                include_values=include_values  # This parameter includes the embedding vectors.
+            )
             matches = response.get("matches", [])
             logger.info("Query returned %d matches.", len(matches))
             return matches

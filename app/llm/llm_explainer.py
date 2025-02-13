@@ -93,18 +93,17 @@ class LLMExplainer:
         prompt = (
             f"Query image description: '{query_caption}'.\n"
             f"Matched image description: '{match_caption}'.\n"
-            "Compare these two images in a concise yet engaging manner. "
-            "Highlight what they have in common as well as the differences, and make sure to mention the most striking feature of each image. "
-            "Add a humorous twist to your explanation to keep it lively."
+            "Focus solely on their similarities. Describe in a cheeky and cool manner how these two images share strikingly similar features—almost like long-lost twins with a flair for style. "
+            "Emphasize their common traits with a humorous twist that makes it both convincing and entertaining."
         )
         try:
             logger.info("Generating explanation using prompt.")
             response = self.client.text_generation(
                 prompt=prompt,
                 model=self.text_model_name,
-                max_new_tokens=300,
+                max_new_tokens=500,
                 do_sample=True,
-                temperature=0.7,
+                temperature=0.5,
                 top_k=50,
                 top_p=0.9,
                 repetition_penalty=1.2
@@ -168,11 +167,16 @@ class LLMExplainer:
         try:
             image_features = image_features / image_features.norm(dim=-1, keepdim=True)
             text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+            # Compute similarities as before
             similarities = (100.0 * image_features @ text_features.T).softmax(dim=-1)
-            best_idx = similarities.argmax().item()
+            # Get the index along the candidate texts dimension (dim=1)
+            best_idx = similarities.argmax(dim=1).item()  # best_idx is now in the range [0, N-1]
+            # Now correctly index the similarity score using the row 0
+            best_score = similarities[0, best_idx].item()
             best_caption = self.candidate_texts[best_idx]
             logger.info("CLIP selected caption: '%s' for image '%s'.", best_caption, image_path)
-            return best_caption
+            best_caption_and_score = {"caption": best_caption, "score": best_score}
+            return best_caption_and_score
         except Exception as e:
             logger.error("Error computing similarities for image '%s': %s", image_path, e, exc_info=True)
             raise e
@@ -205,7 +209,7 @@ class LLMExplainer:
 
         try:
             explanation = self.generate_text_explanation(query_caption, match_caption)
-            return explanation
+            return explanation, query_caption, match_caption
         except Exception as e:
             logger.error("Failed to generate explanation: %s", e, exc_info=True)
             return "No explanation available."
