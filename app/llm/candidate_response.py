@@ -8,7 +8,7 @@ def load_candidate_texts(num_candidates: int = 200) -> list:
         num_candidates (int): The number of candidate captions to generate.
         
     Returns:
-        list: A list of candidate caption strings.
+        list: A sorted list of candidate caption strings that are less than 77 tokens.
     """
     # Basic adjectives and descriptions
     adjectives = [
@@ -75,6 +75,10 @@ def load_candidate_texts(num_candidates: int = 200) -> list:
             f"They are {random.choice(expression_descriptions)} and {random.choice(accessory_descriptions)}. "
             f"The image is set {random.choice(background_descriptions)}."
         )
-        candidate_texts.add(caption)
+        # Check if the caption is less than 77 tokens (approximation using whitespace splitting).
+        if len(caption.split()) < 52:
+            print(len(caption.split()))
+            candidate_texts.add(caption)
+        # Else, skip and generate a new caption.
     
     return sorted(list(candidate_texts))

@@ -135,7 +135,3 @@ for handler in log_config['handlers'].values():
 
 # Apply the logging configuration
 logging.config.dictConfig(log_config)
-
-if __name__ == "__main__":
-    logger = logging.getLogger(__name__)
-    logger.info("Central logging configuration has been initialized.")
